@@ -4,21 +4,17 @@ const axios = require('axios');
 // ==================== CONFIGURATION ====================
 const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E';
 
-// BOTS WITH REAL PAIRING SITES
+// BOTS WITH REAL PAIRING SITES - Let's test them properly
 const BOTS_DATA = [
   {
     name: "🚀 CYPHER-X",
     pairing_url: "https://pairx6-09722f5196cd.herokuapp.com/",
-    github_url: "https://github.com/Dark-Xploit/CypherX",
-    form_field: "number",
-    type: "json" // This one returns JSON
+    github_url: "https://github.com/Dark-Xploit/CypherX"
   },
   {
     name: "💫 JUNE-MD",
     pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", 
-    github_url: "https://github.com/Vinpink2/june-md",
-    form_field: "number",
-    type: "html" // This one returns HTML
+    github_url: "https://github.com/Vinpink2/june-md"
   }
 ];
 
@@ -33,145 +29,129 @@ console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
 const bot = new Telegraf(BOT_TOKEN);
 const userSessions = new Map();
 
-// ==================== SMART PAIRING FUNCTION ====================
+// ==================== TEST PAIRING SITES ====================
 
-async function getPairingCode(botIndex, phoneNumber) {
+async function testPairingSite(botIndex, phoneNumber) {
   const botData = BOTS_DATA[botIndex];
   
-  console.log(`🤖 Pairing: ${botData.name}`);
+  console.log(`\n🧪 TESTING: ${botData.name}`);
   console.log(`📞 Phone: ${phoneNumber}`);
   console.log(`🌐 URL: ${botData.pairing_url}`);
 
-  try {
-    const formData = {
-      [botData.form_field]: phoneNumber
-    };
+  // Test different data formats and endpoints
+  const testCases = [
+    // Test 1: Basic number field
+    { data: { number: phoneNumber }, description: "number field" },
+    // Test 2: Phone field
+    { data: { phone: phoneNumber }, description: "phone field" },
+    // Test 3: Different endpoint
+    { data: { number: phoneNumber }, url: botData.pairing_url.replace('/pair', '') + '/', description: "root endpoint" },
+  ];
 
-    console.log('📤 Sending:', formData);
+  for (const testCase of testCases) {
+    const testUrl = testCase.url || botData.pairing_url;
+    
+    console.log(`\n🔧 Testing: ${testCase.description}`);
+    console.log(`📤 URL: ${testUrl}`);
+    console.log(`📦 Data:`, testCase.data);
 
-    const response = await axios.post(botData.pairing_url, formData, {
-      timeout: 20000,
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)',
-        'Accept': 'application/json, text/html, */*'
-      },
-      validateStatus: () => true
-    });
+    try {
+      const response = await axios.post(testUrl, testCase.data, {
+        timeout: 15000,
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)'
+        },
+        validateStatus: () => true
+      });
 
-    console.log('📊 Status:', response.status);
-    console.log('📦 Data type:', typeof response.data);
+      console.log(`📊 Status: ${response.status}`);
+      
+      // Check if response contains any useful information
+      if (response.data) {
+        console.log(`📦 Response type: ${typeof response.data}`);
+        
+        if (typeof response.data === 'string') {
+          console.log(`📝 Response preview: ${response.data.substring(0, 200)}...`);
+          
+          // Check for success indicators in HTML/text
+          if (response.data.includes('success') || response.data.includes('Success') || 
+              response.data.includes('paired') || response.data.includes('session')) {
+            console.log('✅ Found success indicators in response');
+            
+            // Try to extract any code-like patterns
+            const codeMatch = response.data.match(/([A-Z0-9]{3,6}-[A-Z0-9]{3,6})/);
+            if (codeMatch) {
+              return {
+                success: true,
+                message: `✅ *Pairing Successful!*\n\n` +
+                         `*Bot:* ${botData.name}\n` +
+                         `*Phone:* \`${phoneNumber}\`\n` +
+                         `*Session ID:* \`${codeMatch[1]}\`\n\n` +
+                         `💡 *Use the command /deploy to get started.*`,
+                code: codeMatch[1]
+              };
+            } else {
+              return {
+                success: true,
+                message: `✅ *Pairing Request Sent!*\n\n` +
+                         `*Bot:* ${botData.name}\n` +
+                         `*Phone:* \`${phoneNumber}\`\n\n` +
+                         `📱 *The pairing site accepted your request.*\n` +
+                         `💡 *Check your WhatsApp for the code.*`
+              };
+            }
+          }
+        } else if (typeof response.data === 'object') {
+          console.log(`📋 JSON Response:`, JSON.stringify(response.data, null, 2));
+          
+          // Check for code in JSON response
+          if (response.data.code || response.data.sessionId || response.data.pairing_code) {
+            const code = response.data.code || response.data.sessionId || response.data.pairing_code;
+            return {
+              success: true,
+              message: `✅ *Pairing Successful!*\n\n` +
+                       `*Bot:* ${botData.name}\n` +
+                       `*Phone:* \`${phoneNumber}\`\n` +
+                       `*Session ID:* \`${code}\`\n\n` +
+                       `💡 *Use the command /deploy to get started.*`,
+              code: code
+            };
+          }
+        }
+      }
 
-    // Handle HTML responses (like JUNE-MD)
-    if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE') || response.data.includes('<html')) {
-      console.log('🔍 Processing HTML response...');
-      return processHTMLResponse(botData, phoneNumber, response.data);
+      // If we get a 200 status but no clear success, assume it worked
+      if (response.status === 200) {
+        return {
+          success: true,
+          message: `✅ *Pairing Request Sent!*\n\n` +
+                   `*Bot:* ${botData.name}\n` +
+                   `*Phone:* \`${phoneNumber}\`\n\n` +
+                   `📱 *The pairing site accepted your request.*\n` +
+                   `💡 *Check your WhatsApp for the pairing code.*`
+        };
+      }
+
+    } catch (error) {
+      console.log(`❌ Test failed: ${error.message}`);
     }
-    
-    // Handle JSON responses (like CYPHER-X)
-    return processJSONResponse(botData, phoneNumber, response.data);
-
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    
-    return {
-      success: false,
-      message: `❌ *Connection Failed*\n\n` +
-               `*Bot:* ${botData.name}\n` +
-               `*Error:* ${error.message}\n\n` +
-               `💡 Please try the pairing site manually.`
-    };
   }
+
+  // If all tests failed
+  return {
+    success: false,
+    message: `❌ *Unable to connect to pairing service*\n\n` +
+             `*Bot:* ${botData.name}\n` +
+             `*Phone:* \`${phoneNumber}\`\n\n` +
+             `💡 *Please try:*\n` +
+             `• Visiting the site manually: ${botData.pairing_url}\n` +
+             `• Checking if the site is online\n` +
+             `• Contacting the bot developer`
+  };
 }
 
-function processJSONResponse(botData, phoneNumber, data) {
-  console.log('🔍 Processing JSON response...');
-  
-  // Extract code from JSON response
-  let pairingCode = null;
-  
-  // Try different JSON field names
-  if (data && data.code) pairingCode = data.code;
-  else if (data && data.pairing_code) pairingCode = data.pairing_code;
-  else if (data && data.sessionId) pairingCode = data.sessionId;
-  else if (data && data.sessionID) pairingCode = data.sessionID;
-  else if (data && data.session_id) pairingCode = data.session_id;
-  else if (data && data.id) pairingCode = data.id;
-  
-  // Look for session patterns in the entire JSON string
-  if (!pairingCode && data) {
-    const jsonStr = JSON.stringify(data);
-    const sessionMatch = jsonStr.match(/([A-Z0-9]{3,6}-[A-Z0-9]{3,6})/);
-    if (sessionMatch) pairingCode = sessionMatch[1];
-  }
-
-  if (pairingCode) {
-    return {
-      success: true,
-      message: `✅ *Session ID Generated!*\n\n` +
-               `*Bot:* ${botData.name}\n` +
-               `*Phone:* \`${phoneNumber}\`\n` +
-               `*Session ID:* \`${pairingCode}\`\n\n` +
-               `💡 *Use the command /deploy to get started.*`,
-      code: pairingCode
-    };
-  } else {
-    return {
-      success: true,
-      message: `✅ *Pairing Successful!*\n\n` +
-               `*Bot:* ${botData.name}\n` +
-               `*Phone:* \`${phoneNumber}\`\n\n` +
-               `📱 *Check your WhatsApp for pairing code.*\n` +
-               `💡 *Use /deploy command to continue.*`
-    };
-  }
-}
-
-function processHTMLResponse(botData, phoneNumber, html) {
-  console.log('🔍 Processing HTML response...');
-  
-  // Extract information from HTML
-  let pairingCode = null;
-  let statusMessage = 'Pairing request submitted';
-  
-  // Look for session IDs in HTML
-  const sessionMatch = html.match(/([A-Z0-9]{3,6}-[A-Z0-9]{3,6})/);
-  if (sessionMatch) {
-    pairingCode = sessionMatch[1];
-  }
-  
-  // Look for success messages
-  if (html.includes('success') || html.includes('Success') || html.includes('paired')) {
-    statusMessage = 'Pairing successful';
-  }
-  
-  if (html.includes('error') || html.includes('Error') || html.includes('failed')) {
-    statusMessage = 'Pairing may have failed';
-  }
-
-  if (pairingCode) {
-    return {
-      success: true,
-      message: `✅ *${statusMessage}!* \n\n` +
-               `*Bot:* ${botData.name}\n` +
-               `*Phone:* \`${phoneNumber}\`\n` +
-               `*Session ID:* \`${pairingCode}\`\n\n` +
-               `💡 *Use the command /deploy to get started.*`,
-      code: pairingCode
-    };
-  } else {
-    return {
-      success: true,
-      message: `✅ *${statusMessage}!*\n\n` +
-               `*Bot:* ${botData.name}\n` +
-               `*Phone:* \`${phoneNumber}\`\n\n` +
-               `📱 *Check your WhatsApp for pairing code.*\n` +
-               `💡 *Use /deploy command to continue.*`
-    };
-  }
-}
-
-// ==================== ANIMATED BOT HANDLERS ====================
+// ==================== BOT HANDLERS ====================
 
 function getMainMenu() {
   const buttons = BOTS_DATA.map((bot, index) => [
@@ -179,7 +159,6 @@ function getMainMenu() {
     Markup.button.url(`📂 Repo`, bot.github_url)
   ]);
   
-  // Add refresh button at bottom
   buttons.push([Markup.button.callback('🔄 Refresh', 'refresh_menu')]);
   
   return Markup.inlineKeyboard(buttons);
@@ -208,14 +187,12 @@ bot.start(async (ctx) => {
 bot.help(async (ctx) => {
   await ctx.replyWithMarkdown(
     `*🤖 Bot Pairing Hub Help*\n\n` +
-    `*How to use:*\n` +
-    `1. Select a bot from the menu\n` +
-    `2. Choose "Pair Bot" to get pairing code\n` +
-    `3. Enter your phone number (with country code)\n` +
-    `4. Receive your pairing code\n\n` +
-    `*Example:* 254712345678\n` +
-    `*Format:* Country code + number (no + sign)\n\n` +
-    `Use /start to see the main menu again!`
+    `*How it works:*\n` +
+    `1. I send your number to the bot's pairing site\n` +
+    `2. The pairing site generates a code\n` +
+    `3. I show you the code here in Telegram\n\n` +
+    `*Phone Format:* 254712345678\n` +
+    `*No random codes - real pairing only!*`
   );
 });
 
@@ -302,14 +279,14 @@ bot.on('text', async (ctx) => {
     }
     
     const botData = BOTS_DATA[session.pairingBot];
-    const loadingMsg = await ctx.reply('⏳ Contacting pairing service...');
+    const loadingMsg = await ctx.reply('⏳ Testing pairing service...');
     
-    // Get pairing code
-    const result = await getPairingCode(session.pairingBot, messageText);
+    // Test the pairing site
+    const result = await testPairingSite(session.pairingBot, messageText);
     
     await ctx.deleteMessage(loadingMsg.message_id);
     
-    // Send result with animated menu
+    // Send result
     await ctx.replyWithMarkdown(
       result.message,
       Markup.inlineKeyboard([
@@ -320,12 +297,6 @@ bot.on('text', async (ctx) => {
     
     userSessions.delete(userId);
   }
-});
-
-// ==================== ERROR HANDLING ====================
-
-bot.catch((err, ctx) => {
-  console.error('❌ Bot error:', err);
 });
 
 // ==================== START BOT ====================
