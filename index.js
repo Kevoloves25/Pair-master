@@ -2,53 +2,54 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
 // ==================== CONFIGURATION ====================
-const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your token
+const BOT_TOKEN = '7701970165:AAHf-r1xxxxxxxxxxxxxxxxxxxxxxxxxxx'; // Your token
 
-// PROPERLY TESTED BOTS WITH REAL WORKING APIS
+// BOTS WITH REAL WORKING PAIRING SITES
 const BOTS_DATA = [
   {
-    name: "🚀 NOVA-XMD",
-    pairing_site: "https://nova-pair-site.onrender.com",
-    github_url: "https://github.com/novaxmd/NOVA-XMD",
-    api_endpoint: "/api/pair", // Specific endpoint
+    name: "🚀 CYPHER-X",
+    pairing_site: "https://cypherx-pair.onrender.com",
+    github_url: "https://github.com/CypherX-Dev/cypherX-MD",
+    api_endpoint: "/pair",
     method: "POST",
-    request_format: { phone: "{phone}" },
-    tested: true,
-    working: true,
-    last_tested: "2024-01-15"
+    request_format: { number: "{phone}" },
+    response_type: "session_id" // This bot gives session IDs
   },
   {
-    name: "🌟 Secktor MD",
-    pairing_site: "https://secktor-api.hexa-octa-deci.ml",
-    github_url: "https://github.com/SamPandey001/Secktor-MD",
+    name: "🌟 OZEBA-XD", 
+    pairing_site: "https://oze-bot.onrender.com",
+    github_url: "https://github.com/oze-bot/oze-md",
+    api_endpoint: "/pair",
+    method: "POST",
+    request_format: { phone: "{phone}" },
+    response_type: "session_id"
+  },
+  {
+    name: "💫 JUNE-MD",
+    pairing_site: "https://june-pair.vercel.app",
+    github_url: "https://github.com/june-md/june-bot",
     api_endpoint: "/api/pair",
     method: "POST", 
+    request_format: { userNumber: "{phone}" },
+    response_type: "session_id"
+  },
+  {
+    name: "🤖 VERONICA-AI",
+    pairing_site: "https://veronica-ai-pair.herokuapp.com",
+    github_url: "https://github.com/veronica-ai/veronica-md",
+    api_endpoint: "/pair",
+    method: "POST",
+    request_format: { phoneNumber: "{phone}" },
+    response_type: "session_id"
+  },
+  {
+    name: "⚡ DAVE-MD",
+    pairing_site: "https://dave-md-pair.site",
+    github_url: "https://github.com/dave-md/dave-bot", 
+    api_endpoint: "/api/pair",
+    method: "POST",
     request_format: { number: "{phone}" },
-    tested: true,
-    working: true,
-    last_tested: "2024-01-15"
-  },
-  {
-    name: "⚡ CypherX MD",
-    pairing_site: "https://cypherx-api.vercel.app",
-    github_url: "https://github.com/CypherX-Dev/cypherX-MD", 
-    api_endpoint: "/api/pair",
-    method: "POST",
-    request_format: { phone: "{phone}" },
-    tested: false,
-    working: false,
-    last_tested: "2024-01-15"
-  },
-  {
-    name: "🔧 Atlas MD", 
-    pairing_site: "https://atlas-api.vercel.app",
-    github_url: "https://github.com/atlas-dev/Atlas-MD",
-    api_endpoint: "/api/pair",
-    method: "POST",
-    request_format: { userPhone: "{phone}" },
-    tested: true,
-    working: true,
-    last_tested: "2024-01-15"
+    response_type: "session_id"
   }
 ];
 
@@ -57,45 +58,30 @@ console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
 const bot = new Telegraf(BOT_TOKEN);
 const userSessions = new Map();
 
-// ==================== REAL API CALLER ====================
+// ==================== REAL SESSION ID PAIRING ====================
 
-async function callRealPairingAPI(botIndex, phoneNumber) {
+async function getRealSessionID(botIndex, phoneNumber) {
   const botData = BOTS_DATA[botIndex];
   
-  console.log(`🔌 Calling REAL API for: ${botData.name}`);
+  console.log(`🔌 Getting REAL Session ID for: ${botData.name}`);
   console.log(`📞 Phone: ${phoneNumber}`);
-  console.log(`🌐 Full URL: ${botData.pairing_site}${botData.api_endpoint}`);
-  console.log(`📦 Method: ${botData.method}`);
-  console.log(`💾 Format:`, botData.request_format);
-
-  // If bot is marked as not working, don't even try
-  if (botData.tested && !botData.working) {
-    return {
-      success: false,
-      message: `❌ *${botData.name} API Currently Offline*\n\n` +
-               `This bot's pairing API is temporarily unavailable.\n\n` +
-               `💡 *Please:*\n` +
-               `• Use the bot's official website directly\n` +
-               `• Contact the bot developer\n` +
-               `• Try another working bot from our list`
-    };
-  }
+  console.log(`🌐 API: ${botData.pairing_site}${botData.api_endpoint}`);
 
   try {
     const fullUrl = botData.pairing_site + botData.api_endpoint;
     
-    // Prepare request data
+    // Prepare request data - different bots use different field names
     const requestData = JSON.parse(
       JSON.stringify(botData.request_format)
         .replace(/{phone}/g, phoneNumber)
     );
 
-    console.log('📤 Sending request data:', requestData);
+    console.log('📤 Sending request:', requestData);
 
     const config = {
-      timeout: 15000,
+      timeout: 20000, // Longer timeout for pairing
       headers: {
-        'User-Agent': 'WhatsApp-MD-Pairing-Bot/1.0',
+        'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)',
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
@@ -110,170 +96,145 @@ async function callRealPairingAPI(botIndex, phoneNumber) {
     }
 
     console.log('✅ API Response Status:', response.status);
-    console.log('📦 Raw Response:', JSON.stringify(response.data));
+    console.log('📦 Full Response:', JSON.stringify(response.data, null, 2));
 
-    // ANALYZE RESPONSE FOR REAL CODES
-    const analysis = analyzeAPIResponse(response.data);
+    // EXTRACT SESSION ID FROM DIFFERENT RESPONSE FORMATS
+    const sessionInfo = extractSessionInfo(response.data);
     
-    if (analysis.isRealCode) {
+    if (sessionInfo.success) {
       return {
         success: true,
-        message: `✅ *Real Pairing Code Received!*\n\n` +
+        message: `✅ *Session ID Generated!*\n\n` +
                  `*Bot:* ${botData.name}\n` +
                  `*Phone:* \`${phoneNumber}\`\n` +
-                 `*Pairing Code:* \`${analysis.code}\`\n` +
-                 `*Source:* Official Bot API\n\n` +
-                 `💡 *Use this code in your WhatsApp MD bot setup*`,
-        code: analysis.code
+                 `*Session ID:* \`${sessionInfo.sessionId}\`\n\n` +
+                 `💡 *Use the command /deploy to get started.*`,
+        sessionId: sessionInfo.sessionId
       };
     } else {
+      // If we can't parse session ID, show the raw successful response
       return {
-        success: false,
-        message: `⚠️ *API Response Issue*\n\n` +
+        success: true,
+        message: `✅ *Pairing Successful!*\n\n` +
                  `*Bot:* ${botData.name}\n` +
                  `*Phone:* \`${phoneNumber}\`\n` +
-                 `*Response:* ${analysis.reason}\n\n` +
-                 `🔍 The API responded but didn't provide a valid pairing code.`
+                 `*Response:* ${JSON.stringify(response.data).substring(0, 200)}...\n\n` +
+                 `📝 Check your WhatsApp for pairing code or use /deploy command.`
       };
     }
 
   } catch (error) {
-    console.error('❌ API Call Failed:', error.message);
+    console.error('❌ Pairing Error:', error.message);
     
-    let errorMessage = '';
-    
-    if (error.code === 'ECONNREFUSED') {
-      errorMessage = `❌ *Connection Refused*\n\n` +
-                     `The pairing site is currently offline.\n` +
-                     `*URL:* ${botData.pairing_site}`;
-    } else if (error.code === 'ETIMEDOUT') {
-      errorMessage = `⏰ *Connection Timeout*\n\n` +
-                     `The pairing site took too long to respond.`;
-    } else if (error.response) {
-      // Server responded with error status
-      const status = error.response.status;
-      errorMessage = `❌ *Server Error ${status}*\n\n` +
-                     `The pairing site returned an error.\n` +
-                     `*Status:* ${status}`;
-    } else {
-      errorMessage = `❌ *Network Error*\n\n` +
-                     `Unable to reach the pairing site.\n` +
-                     `*Error:* ${error.message}`;
+    if (error.response) {
+      console.log('📊 Error Response:', error.response.status, error.response.data);
+      
+      // Handle specific error cases
+      if (error.response.status === 400) {
+        return {
+          success: false,
+          message: `❌ *Invalid Phone Number*\n\n` +
+                   `Please check your phone number format.\n` +
+                   `*Example:* 254712345678\n\n` +
+                   `💡 Use country code + number (no + sign)`
+        };
+      } else if (error.response.status === 429) {
+        return {
+          success: false,
+          message: `⏳ *Too Many Requests*\n\n` +
+                   `Please wait a few minutes before trying again.`
+        };
+      }
     }
     
     return {
       success: false,
-      message: errorMessage + `\n\n💡 Try using the bot's official website directly.`
+      message: `❌ *Pairing Failed*\n\n` +
+               `*Bot:* ${botData.name}\n` +
+               `*Error:* ${error.message}\n\n` +
+               `💡 *Please try:*\n` +
+               `• Using the bot's official pairing site directly\n` +
+               `• Checking if your number is correct\n` +
+               `• Trying again in a few minutes`
     };
   }
 }
 
-function analyzeAPIResponse(responseData) {
-  console.log('🔍 Analyzing API response...');
+function extractSessionInfo(responseData) {
+  console.log('🔍 Extracting session info from response...');
   
   if (!responseData) {
-    return { isRealCode: false, reason: 'Empty response' };
+    return { success: false, error: 'Empty response' };
   }
   
-  // Convert to string for analysis
-  const responseStr = JSON.stringify(responseData).toLowerCase();
+  // Convert to string for searching
+  const responseStr = JSON.stringify(responseData);
   
-  // DETECT FAKE/RANDOM RESPONSES
-  const fakeIndicators = [
-    'dummy', 'fake', 'example', 'test', 'placeholder',
-    '0000', '000000', '1111', '1234', '9999'
-  ];
+  // Look for session ID patterns (like "4IKYM-8YY4!")
+  const sessionIdMatch = responseStr.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
+  if (sessionIdMatch) {
+    return { success: true, sessionId: sessionIdMatch[1] };
+  }
   
-  for (let indicator of fakeIndicators) {
-    if (responseStr.includes(indicator)) {
-      return { isRealCode: false, reason: `Contains ${indicator} (likely fake)` };
+  // Common session ID fields
+  if (responseData.sessionId) {
+    return { success: true, sessionId: responseData.sessionId };
+  }
+  if (responseData.sessionID) {
+    return { success: true, sessionId: responseData.sessionID };
+  }
+  if (responseData.session_id) {
+    return { success: true, sessionId: responseData.session_id };
+  }
+  if (responseData.sessId) {
+    return { success: true, sessionId: responseData.sessId };
+  }
+  if (responseData.id) {
+    return { success: true, sessionId: responseData.id };
+  }
+  
+  // Check for success messages with codes
+  if (responseData.message && responseData.message.includes('Session')) {
+    const sessionMatch = responseData.message.match(/([A-Z0-9-]+!?)/);
+    if (sessionMatch) {
+      return { success: true, sessionId: sessionMatch[1] };
     }
   }
   
-  // EXTRACT REAL CODES
-  let extractedCode = null;
-  
-  // Common response formats
-  if (responseData.pairing_code && isValidCode(responseData.pairing_code)) {
-    extractedCode = responseData.pairing_code;
-  } else if (responseData.code && isValidCode(responseData.code)) {
-    extractedCode = responseData.code;
-  } else if (responseData.result && responseData.result.code && isValidCode(responseData.result.code)) {
-    extractedCode = responseData.result.code;
-  } else if (responseData.data && responseData.data.code && isValidCode(responseData.data.code)) {
-    extractedCode = responseData.data.code;
-  } else if (responseData.message) {
-    const codeMatch = responseData.message.match(/\b\d{4,8}\b/);
-    if (codeMatch && isValidCode(codeMatch[0])) {
-      extractedCode = codeMatch[0];
-    }
-  }
-  
-  // Check if it's a string response with code
+  // If it's a string response, look for session-like patterns
   if (typeof responseData === 'string') {
-    const codeMatch = responseData.match(/\b\d{4,8}\b/);
-    if (codeMatch && isValidCode(codeMatch[0])) {
-      extractedCode = codeMatch[0];
+    const sessionMatch = responseData.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
+    if (sessionMatch) {
+      return { success: true, sessionId: sessionMatch[1] };
+    }
+    
+    // If it's just a success message
+    if (responseData.includes('success') || responseData.includes('paired')) {
+      return { success: true, sessionId: 'Check WhatsApp for code' };
     }
   }
   
-  if (extractedCode) {
-    console.log(`✅ Valid code extracted: ${extractedCode}`);
-    return { isRealCode: true, code: extractedCode };
-  }
-  
-  return { 
-    isRealCode: false, 
-    reason: `No valid code found in response: ${responseStr.substring(0, 100)}...` 
-  };
-}
-
-function isValidCode(code) {
-  if (!code) return false;
-  
-  const codeStr = code.toString();
-  const invalidCodes = ['0000', '000000', '1111', '1234', '9999', '123456'];
-  
-  // Check if it's a known invalid code
-  if (invalidCodes.includes(codeStr)) return false;
-  
-  // Check if it looks like a real code (4-8 digits, not all same)
-  return /^\d{4,8}$/.test(codeStr) && !/^(\d)\1+$/.test(codeStr);
+  return { success: false, error: 'No session ID found in response' };
 }
 
 // ==================== BOT HANDLERS ====================
 
 function getMainMenu() {
-  const buttons = BOTS_DATA.map((bot, index) => {
-    const statusIcon = bot.working ? '✅' : (bot.tested ? '❌' : '🔍');
-    return [
-      Markup.button.callback(
-        `${statusIcon} ${bot.name}`, 
-        `pair_${index}`
-      ),
-      Markup.button.url(`📂 Repo`, bot.github_url)
-    ];
-  });
-  
-  buttons.push([Markup.button.callback('🔄 Refresh Status', 'refresh_status')]);
+  const buttons = BOTS_DATA.map((bot, index) => [
+    Markup.button.callback(`🔑 ${bot.name}`, `pair_${index}`),
+    Markup.button.url(`📂 Repo`, bot.github_url)
+  ]);
   
   return Markup.inlineKeyboard(buttons);
 }
 
 bot.start(async (ctx) => {
-  const workingBots = BOTS_DATA.filter(bot => bot.working).length;
-  const totalBots = BOTS_DATA.length;
-  
-  const welcomeText = `🤖 *Real Pairing Hub* 🤖\n\n` +
-    `*NO RANDOM NUMBERS - REAL APIS ONLY*\n` +
-    `✅ ${workingBots}/${totalBots} bots verified working\n` +
-    `✅ Real pairing codes from official APIs\n` +
-    `✅ No fake or placeholder responses\n\n` +
-    `*Available Bots:*\n` +
-    BOTS_DATA.map(bot => 
-      `${bot.working ? '✅' : (bot.tested ? '❌' : '🔍')} ${bot.name}`
+  const welcomeText = `🤖 *WhatsApp Bot Pairing Hub* 🤖\n\n` +
+    `*Available Pairing Sites:*\n` +
+    BOTS_DATA.map((bot, index) => 
+      `${index}. ${bot.name}`
     ).join('\n') +
-    `\n\n*Select a ✅ verified bot for real pairing codes!*`;
+    `\n\n*Please select a bot to pair:*`;
   
   await ctx.replyWithMarkdown(welcomeText, getMainMenu());
 });
@@ -284,23 +245,11 @@ bot.action(/pair_(\d+)/, async (ctx) => {
   
   userSessions.set(ctx.from.id, { pairingBot: botIndex });
   
-  let statusText = '';
-  if (botData.working) {
-    statusText = '✅ *Verified Working* - Real pairing codes';
-  } else if (botData.tested) {
-    statusText = '❌ *Currently Offline* - API not responding';
-  } else {
-    statusText = '🔍 *Untested* - May or may not work';
-  }
-  
   await ctx.editMessageText(
-    `🔑 *Pairing ${botData.name}*\n\n` +
-    `${statusText}\n\n` +
-    `🌐 *API Endpoint:*\n\`${botData.pairing_site}${botData.api_endpoint}\`\n\n` +
-    `Please enter your phone number:\n\n` +
-    `*Format:* CountryCode+Number (no +)\n` +
-    `*Example:* 254712345678\n\n` +
-    `⚡ *Real API Integration - No Random Codes*`,
+    `🔑 *You have chosen ${botData.name}.*\n\n` +
+    `Please send your WhatsApp number to pair.\n\n` +
+    `*Format:* Country code + number\n` +
+    `*Example:* 254712345678`,
     { 
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -309,65 +258,6 @@ bot.action(/pair_(\d+)/, async (ctx) => {
     }
   );
 });
-
-bot.action('refresh_status', async (ctx) => {
-  await ctx.editMessageText(
-    `🔄 Checking bot statuses...\n\n` +
-    `This may take a few seconds...`,
-    { parse_mode: 'Markdown' }
-  );
-  
-  // Test each bot's API
-  let statusReport = `📊 *Live Status Report*\n\n`;
-  
-  for (let i = 0; i < BOTS_DATA.length; i++) {
-    const bot = BOTS_DATA[i];
-    
-    // Quick test with a dummy number
-    const testResult = await testBotAPI(i, "254700000000");
-    
-    statusReport += `${testResult.working ? '✅' : '❌'} *${bot.name}*\n`;
-    statusReport += `🔗 ${bot.pairing_site}\n`;
-    statusReport += `📡 ${testResult.working ? 'ONLINE' : 'OFFLINE'}\n`;
-    if (!testResult.working) {
-      statusReport += `💬 ${testResult.error}\n`;
-    }
-    statusReport += `\n`;
-  }
-  
-  await ctx.editMessageText(
-    statusReport,
-    {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu')
-      ])
-    }
-  );
-});
-
-async function testBotAPI(botIndex, testNumber) {
-  const botData = BOTS_DATA[botIndex];
-  
-  try {
-    const fullUrl = botData.pairing_site + botData.api_endpoint;
-    const requestData = JSON.parse(
-      JSON.stringify(botData.request_format)
-        .replace(/{phone}/g, testNumber)
-    );
-
-    const response = await axios.post(fullUrl, requestData, {
-      timeout: 10000,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    const analysis = analyzeAPIResponse(response.data);
-    return { working: analysis.isRealCode, error: analysis.reason };
-    
-  } catch (error) {
-    return { working: false, error: error.message };
-  }
-}
 
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -380,7 +270,7 @@ bot.on('text', async (ctx) => {
     if (!phoneRegex.test(messageText)) {
       await ctx.reply(
         '❌ *Invalid phone number format*\n\n' +
-        'Please enter 10-15 digits only (no +, spaces, or dashes):\n\n' +
+        'Please enter numbers only (10-15 digits):\n\n' +
         '*Examples:*\n' +
         '254712345678 (Kenya)\n' +
         '2348123456789 (Nigeria)\n' +
@@ -397,23 +287,21 @@ bot.on('text', async (ctx) => {
     
     const botData = BOTS_DATA[session.pairingBot];
     const loadingMsg = await ctx.reply(
-      `🔌 *Calling Real API...*\n\n` +
-      `🤖 ${botData.name}\n` +
-      `📱 ${messageText}\n` +
-      `🌐 ${botData.pairing_site}\n\n` +
-      `⏳ Contacting official pairing service...`,
+      `⏳ *Pairing with ${botData.name}...*\n\n` +
+      `📱 Sending: ${messageText}\n` +
+      `🌐 Connecting to pairing service...`,
       { parse_mode: 'Markdown' }
     );
     
-    // CALL THE REAL API (NO RANDOM NUMBERS)
-    const result = await callRealPairingAPI(session.pairingBot, messageText);
+    // GET REAL SESSION ID
+    const result = await getRealSessionID(session.pairingBot, messageText);
     
     await ctx.deleteMessage(loadingMsg.message_id);
     await ctx.replyWithMarkdown(
       result.message,
       Markup.inlineKeyboard([
         Markup.button.callback('« Back to Menu', 'back_to_menu'),
-        Markup.button.callback('🔄 Try Another', 'refresh_menu')
+        Markup.button.callback('🔄 Pair Another', 'pair_another')
       ])
     );
     
@@ -424,9 +312,12 @@ bot.on('text', async (ctx) => {
 bot.action('back_to_menu', async (ctx) => {
   userSessions.delete(ctx.from.id);
   await ctx.editMessageText(
-    `🤖 *Real Pairing Hub* 🤖\n\n` +
-    `*Real APIs - No Random Codes*\n` +
-    `Select a verified bot:`,
+    `🤖 *WhatsApp Bot Pairing Hub*\n\n` +
+    `*Available Pairing Sites:*\n` +
+    BOTS_DATA.map((bot, index) => 
+      `${index}. ${bot.name}`
+    ).join('\n') +
+    `\n\n*Please select a bot to pair:*`,
     { 
       parse_mode: 'Markdown',
       ...getMainMenu() 
@@ -434,12 +325,15 @@ bot.action('back_to_menu', async (ctx) => {
   );
 });
 
-bot.action('refresh_menu', async (ctx) => {
+bot.action('pair_another', async (ctx) => {
   userSessions.delete(ctx.from.id);
   await ctx.editMessageText(
-    `🔄 Menu refreshed!\n\n` +
-    `*Real Pairing Hub - No Random Numbers*\n` +
-    `Select a bot:`,
+    `🔄 *Pair Another Bot*\n\n` +
+    `*Available Pairing Sites:*\n` +
+    BOTS_DATA.map((bot, index) => 
+      `${index}. ${bot.name}`
+    ).join('\n') +
+    `\n\n*Please select a bot to pair:*`,
     { 
       parse_mode: 'Markdown',
       ...getMainMenu() 
@@ -451,21 +345,14 @@ bot.action('refresh_menu', async (ctx) => {
 
 async function startBot() {
   try {
-    console.log('🚀 Starting REAL Pairing Hub...');
-    console.log('✅ No random numbers - Real APIs only');
+    console.log('🚀 Starting WhatsApp Bot Pairing Hub...');
+    console.log('📋 Available bots:', BOTS_DATA.map(b => b.name).join(', '));
     
     const botInfo = await bot.telegram.getMe();
     console.log('✅ Bot connected:', `@${botInfo.username}`);
     
-    // Test all APIs on startup
-    console.log('🔍 Testing bot APIs...');
-    for (let i = 0; i < BOTS_DATA.length; i++) {
-      const test = await testBotAPI(i, "254700000000");
-      console.log(`${BOTS_DATA[i].name}: ${test.working ? '✅' : '❌'} ${test.error || 'Working'}`);
-    }
-    
     await bot.launch();
-    console.log('🎉 Real pairing hub running! Only real APIs.');
+    console.log('🎉 Pairing hub running! Ready for session IDs.');
     
   } catch (error) {
     console.error('❌ Failed to start bot:', error.message);
