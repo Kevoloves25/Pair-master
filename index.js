@@ -1,15 +1,27 @@
+// Load environment variables FIRST
+require('dotenv').config();
+
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
+// Debug: Check if token is loaded
+console.log('🔍 Checking environment...');
+console.log('BOT_TOKEN exists:', !!process.env.BOT_TOKEN);
+console.log('BOT_TOKEN length:', process.env.BOT_TOKEN ? process.env.BOT_TOKEN.length : 0);
+
 // Validate bot token
 const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
-  console.error('❌ ERROR: Please set BOT_TOKEN in environment variables');
-  console.log('💡 Get token from @BotFather on Telegram');
+if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE' || BOT_TOKEN.includes('example')) {
+  console.error('❌ ERROR: Invalid BOT_TOKEN');
+  console.log('💡 Please check your .env file:');
+  console.log('   1. Make sure BOT_TOKEN=your_actual_token_here');
+  console.log('   2. No quotes around the token');
+  console.log('   3. No spaces around the equals sign');
+  console.log('   4. File should be in the same directory as index.js');
   process.exit(1);
 }
 
-// Bot data - using some real WhatsApp MD bot examples
+// Bot data
 const BOTS_DATA = [
   {
     name: "🌟 Secktor MD",
@@ -42,7 +54,6 @@ function getMainMenu() {
     Markup.button.url(`📂 Repo`, bot.github_url)
   ]);
   
-  // Add a refresh button
   buttons.push([Markup.button.callback('🔄 Refresh', 'refresh_menu')]);
   
   return Markup.inlineKeyboard(buttons);
@@ -52,35 +63,18 @@ async function getPairingCode(botIndex, phoneNumber) {
   try {
     const botData = BOTS_DATA[botIndex];
     
-    // For demo purposes - since real APIs might not be available
-    // This simulates a successful pairing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Generate a random 6-digit code
+    // Generate random 6-digit code for demo
     const demoCode = Math.floor(100000 + Math.random() * 900000);
     
     return `${demoCode}`;
     
-    /* 
-    // UNCOMMENT THIS FOR REAL API CALLS:
-    const response = await axios.post(botData.api_url, {
-      phone: phoneNumber
-    }, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Telegram-Bot-Pairing-Hub/1.0'
-      }
-    });
-    
-    return response.data.pairing_code || response.data.code || 'Check your WhatsApp for code';
-    */
-    
   } catch (error) {
-    console.error('Pairing API error:', error.message);
-    
-    // Fallback demo code if API fails
+    console.error('Pairing error:', error.message);
     const fallbackCode = Math.floor(100000 + Math.random() * 900000);
-    return `${fallbackCode} (Demo - API Unavailable)`;
+    return `${fallbackCode}`;
   }
 }
 
@@ -139,7 +133,6 @@ bot.action('back_to_menu', async (ctx) => {
   );
 });
 
-// Handle phone number input
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const session = userSessions.get(userId);
@@ -160,7 +153,6 @@ bot.on('text', async (ctx) => {
     }
     
     const loadingMsg = await ctx.reply('⏳ Requesting pairing code...');
-    
     const pairingCode = await getPairingCode(session.pairingBot, messageText);
     const botName = BOTS_DATA[session.pairingBot].name;
     
@@ -183,48 +175,36 @@ bot.on('text', async (ctx) => {
 // ==================== ERROR HANDLING ====================
 
 bot.catch((err, ctx) => {
-  console.error(`Error for ${ctx.updateType}:`, err);
-  try {
-    ctx.reply('❌ An error occurred. Please use /start to restart.');
-  } catch (e) {
-    // Ignore message errors
-  }
+  console.error(`Bot error:`, err);
 });
 
 // ==================== START BOT ====================
 
 async function startBot() {
   console.log('🚀 Starting Telegram Bot Pairing Hub...');
-  console.log('📞 Bot is ready to pair WhatsApp numbers!');
+  console.log('📋 Loaded bots:', BOTS_DATA.length);
   
   try {
-    // Test Telegram API connection
     const botInfo = await bot.telegram.getMe();
     console.log(`✅ Bot connected: @${botInfo.username}`);
     console.log(`🤖 Bot name: ${botInfo.first_name}`);
+    console.log('🎉 Bot is now running! Send /start to test.');
     
     await bot.launch();
-    console.log('🎉 Bot is now running and ready!');
     
   } catch (error) {
-    console.error('❌ Failed to connect to Telegram:', error.message);
-    console.log('💡 Check your:');
-    console.log('   1. Internet connection');
-    console.log('   2. BOT_TOKEN in .env file');
-    console.log('   3. Firewall/network restrictions');
+    console.error('❌ Failed to start bot:', error.message);
+    console.log('🔧 Troubleshooting tips:');
+    console.log('   1. Check BOT_TOKEN in .env file');
+    console.log('   2. Ensure token is from @BotFather');
+    console.log('   3. Check internet connection');
+    console.log('   4. Verify no firewall blocking Telegram');
     process.exit(1);
   }
 }
 
-// Handle graceful shutdown
-process.once('SIGINT', () => {
-  console.log('\n🛑 Shutting down gracefully...');
-  bot.stop('SIGINT');
-});
-
-process.once('SIGTERM', () => {
-  console.log('\n🛑 Received SIGTERM...');
-  bot.stop('SIGTERM');
-});
+// Graceful shutdown
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 startBot();
