@@ -2,7 +2,7 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
 // ==================== CONFIGURATION ====================
-const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your token
+const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E';
 
 // BOTS WITH REAL PAIRING SITES
 const BOTS_DATA = [
@@ -13,27 +13,9 @@ const BOTS_DATA = [
     form_field: "number"
   },
   {
-    name: "🌟 OZEBA-XD", 
-    pairing_url: "YOUR_OZEBAXD_PAIRING_URL_HERE",
-    github_url: "https://github.com/oze-bot/oze-md",
-    form_field: "phone"
-  },
-  {
     name: "💫 JUNE-MD",
     pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", 
     github_url: "https://github.com/Vinpink2/june-md?tab=readme-ov-file",
-    form_field: "userNumber"
-  },
-  {
-    name: "🤖 VERONICA-AI",
-    pairing_url: "YOUR_VERONICA_PAIRING_URL_HERE",
-    github_url: "https://github.com/veronica-ai/veronica-md",
-    form_field: "phoneNumber"
-  },
-  {
-    name: "⚡ DAVE-MD",
-    pairing_url: "YOUR_DAVEMD_PAIRING_URL_HERE",  
-    github_url: "https://github.com/dave-md/dave-bot",
     form_field: "number"
   }
 ];
@@ -49,125 +31,174 @@ console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
 const bot = new Telegraf(BOT_TOKEN);
 const userSessions = new Map();
 
-// ==================== IMPROVED PAIRING FUNCTION ====================
+// ==================== DEBUG PAIRING FUNCTION ====================
 
-async function getPairingCode(botIndex, phoneNumber) {
+async function debugPairing(botIndex, phoneNumber) {
   const botData = BOTS_DATA[botIndex];
   
-  console.log(`🔌 Pairing: ${botData.name}`);
+  console.log(`\n🔍 === DEBUG START ===`);
+  console.log(`🤖 Bot: ${botData.name}`);
   console.log(`📞 Phone: ${phoneNumber}`);
   console.log(`🌐 URL: ${botData.pairing_url}`);
+  console.log(`📝 Field: ${botData.form_field}`);
 
   try {
+    // Try different data formats
     const formData = {
       [botData.form_field]: phoneNumber
     };
 
-    console.log('📤 Sending:', formData);
+    console.log('📤 Sending data:', formData);
 
     const response = await axios.post(botData.pairing_url, formData, {
-      timeout: 15000,
+      timeout: 20000,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Pairing-Bot/1.0'
+        'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)',
+        'Accept': 'application/json'
       },
-      validateStatus: () => true // Don't throw on any status
+      validateStatus: () => true // Accept all status codes
     });
 
-    console.log('✅ Response Status:', response.status);
-    console.log('📦 Full Response:', JSON.stringify(response.data, null, 2));
+    console.log('📊 === RESPONSE DETAILS ===');
+    console.log(`✅ Status: ${response.status}`);
+    console.log(`📋 Headers:`, response.headers);
+    console.log(`📦 Data Type:`, typeof response.data);
+    console.log(`📦 Data:`, response.data);
+    console.log(`📦 Data String:`, JSON.stringify(response.data));
+    console.log(`🔍 === END RESPONSE ===\n`);
 
-    // BETTER CODE EXTRACTION - Look for ANY code-like patterns
-    let pairingCode = extractAnyCode(response.data);
+    // EXTREME CODE EXTRACTION - Try everything!
+    const extractedCode = extractCodeBruteForce(response.data);
     
-    if (pairingCode) {
+    if (extractedCode.found) {
       return {
         success: true,
         message: `✅ *Pairing Successful!*\n\n` +
                  `*Bot:* ${botData.name}\n` +
                  `*Phone:* \`${phoneNumber}\`\n` +
-                 `*Pairing Code:* \`${pairingCode}\`\n\n` +
+                 `*Pairing Code:* \`${extractedCode.code}\`\n` +
+                 `*Found in:* ${extractedCode.source}\n\n` +
                  `💡 *Use this code in your bot deployment.*`,
-        code: pairingCode
+        code: extractedCode.code
       };
     } else {
-      // If no code found but request was successful, show raw response
+      // Show exactly what we received
+      let responsePreview = 'No usable data received';
+      if (response.data) {
+        if (typeof response.data === 'string') {
+          responsePreview = response.data.substring(0, 300);
+        } else {
+          responsePreview = JSON.stringify(response.data).substring(0, 300);
+        }
+      }
+      
       return {
-        success: true,
-        message: `✅ *Pairing Request Sent!*\n\n` +
+        success: false,
+        message: `❌ *No Pairing Code Found*\n\n` +
                  `*Bot:* ${botData.name}\n` +
                  `*Phone:* \`${phoneNumber}\`\n` +
-                 `*Response:* ${JSON.stringify(response.data).substring(0, 200)}...\n\n` +
-                 `🔍 *The pairing site responded but no code was found in the response.*`,
-        code: 'NOT_FOUND_IN_RESPONSE'
+                 `*Status:* ${response.status}\n\n` +
+                 `*Raw Response:*\n\`\`\`${responsePreview}\`\`\`\n\n` +
+                 `🔍 *The site responded but no pairing code was detected.*`
       };
     }
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ === ERROR DETAILS ===');
+    console.error(`💥 Error: ${error.message}`);
+    if (error.response) {
+      console.error(`📊 Status: ${error.response.status}`);
+      console.error(`📦 Data:`, error.response.data);
+    }
+    console.error(`🔍 === END ERROR ===\n`);
+    
+    let errorDetails = error.message;
+    if (error.response) {
+      errorDetails = `Status ${error.response.status}: ${JSON.stringify(error.response.data)}`;
+    }
     
     return {
       success: false,
-      message: `❌ *Pairing Failed*\n\n` +
+      message: `❌ *Connection Failed*\n\n` +
                `*Bot:* ${botData.name}\n` +
-               `*Error:* ${error.message}\n\n` +
-               `💡 Please try the pairing site manually.`
+               `*Error:* ${errorDetails}\n\n` +
+               `💡 *Please try:*\n` +
+               `• Visiting the site manually\n` +
+               `• ${botData.pairing_url}\n` +
+               `• Checking if the site is online`
     };
   }
 }
 
-function extractAnyCode(responseData) {
-  if (!responseData) return null;
+function extractCodeBruteForce(responseData) {
+  console.log('🕵️  BRUTE FORCE CODE EXTRACTION');
   
-  console.log('🔍 Extracting code from:', JSON.stringify(responseData));
-  
-  // Convert to string for pattern matching
+  if (!responseData) {
+    return { found: false, reason: 'No response data' };
+  }
+
   const responseStr = JSON.stringify(responseData);
-  
-  // Look for SESSION ID patterns (like "4IKYM-8YY4!")
-  const sessionIdMatch = responseStr.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
-  if (sessionIdMatch) {
-    console.log('🎯 Found session ID:', sessionIdMatch[1]);
-    return sessionIdMatch[1];
+  console.log('📝 Raw string:', responseStr);
+
+  // 1. Try common field names
+  const commonFields = [
+    'code', 'pairing_code', 'sessionId', 'sessionID', 'session_id', 
+    'sessId', 'id', 'pairCode', 'pairingCode', 'verificationCode'
+  ];
+
+  for (const field of commonFields) {
+    const regex = new RegExp(`"${field}":\\s*"([^"]+)"`, 'i');
+    const match = responseStr.match(regex);
+    if (match && match[1]) {
+      console.log(`🎯 Found in field "${field}":`, match[1]);
+      return { found: true, code: match[1], source: `field "${field}"` };
+    }
   }
-  
-  // Look for numeric codes (4-8 digits)
-  const numericCodeMatch = responseStr.match(/"code":\s*"(\d{4,8})"/);
-  if (numericCodeMatch) {
-    console.log('🎯 Found numeric code:', numericCodeMatch[1]);
-    return numericCodeMatch[1];
+
+  // 2. Try session ID patterns (like "4IKYM-8YY4!")
+  const sessionPattern = /([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/g;
+  const sessionMatch = sessionPattern.exec(responseStr);
+  if (sessionMatch) {
+    console.log('🎯 Found session pattern:', sessionMatch[1]);
+    return { found: true, code: sessionMatch[1], source: 'session pattern' };
   }
-  
-  // Look for pairing_code field
-  const pairingCodeMatch = responseStr.match(/"pairing_code":\s*"([^"]+)"/);
-  if (pairingCodeMatch) {
-    console.log('🎯 Found pairing_code:', pairingCodeMatch[1]);
-    return pairingCodeMatch[1];
+
+  // 3. Try numeric codes
+  const numericPattern = /"(\d{4,8})"/g;
+  const numericMatch = numericPattern.exec(responseStr);
+  if (numericMatch && numericMatch[1] !== phoneNumber) {
+    console.log('🎯 Found numeric code:', numericMatch[1]);
+    return { found: true, code: numericMatch[1], source: 'numeric pattern' };
   }
-  
-  // Look for sessionId field
-  const sessionIdFieldMatch = responseStr.match(/"sessionId":\s*"([^"]+)"/);
-  if (sessionIdFieldMatch) {
-    console.log('🎯 Found sessionId:', sessionIdFieldMatch[1]);
-    return sessionIdFieldMatch[1];
+
+  // 4. Try any alphanumeric that looks like a code
+  const alphaNumPattern = /"([A-Za-z0-9]{4,10})"/g;
+  let alphaNumMatch;
+  while ((alphaNumMatch = alphaNumPattern.exec(responseStr)) !== null) {
+    const potentialCode = alphaNumMatch[1];
+    // Skip if it's obviously not a code
+    if (!potentialCode.includes('http') && 
+        !potentialCode.includes('www') &&
+        !potentialCode.includes('.com') &&
+        potentialCode !== phoneNumber) {
+      console.log('🎯 Found potential code:', potentialCode);
+      return { found: true, code: potentialCode, source: 'alphanumeric pattern' };
+    }
   }
-  
-  // Look for any field containing "code"
-  const anyCodeMatch = responseStr.match(/"([^"]*[Cc]ode[^"]*)":\s*"([^"]+)"/);
-  if (anyCodeMatch) {
-    console.log('🎯 Found code field:', anyCodeMatch[2]);
-    return anyCodeMatch[2];
+
+  // 5. Check if it's a simple success message
+  if (responseStr.includes('success') || responseStr.includes('Success')) {
+    console.log('ℹ️  Success message detected but no code found');
+    return { 
+      found: true, 
+      code: 'Check site for code', 
+      source: 'success message' 
+    };
   }
-  
-  // Last resort: look for any 4-8 character alphanumeric string that might be a code
-  const anyAlphanumericMatch = responseStr.match(/"([A-Za-z0-9]{4,8})"/);
-  if (anyAlphanumericMatch && !anyAlphanumericMatch[1].includes('http')) {
-    console.log('🎯 Found potential code:', anyAlphanumericMatch[1]);
-    return anyAlphanumericMatch[1];
-  }
-  
-  console.log('❌ No code patterns found in response');
-  return null;
+
+  console.log('❌ No code patterns detected');
+  return { found: false, reason: 'No recognizable patterns' };
 }
 
 // ==================== BOT HANDLERS ====================
@@ -217,8 +248,8 @@ bot.action(/pair_(\d+)/, async (ctx) => {
   await ctx.editMessageText(
     `*You have chosen ${botData.name}.*\n\n` +
     `Please send your WhatsApp number:\n\n` +
-    `*Format:* 254712345678\n` +
-    `*I'll show the pairing code here in Telegram*`,
+    `*Format:* 254712345678\n\n` +
+    `🔍 *Debug mode: Will show detailed response*`,
     { 
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
@@ -249,18 +280,20 @@ bot.on('text', async (ctx) => {
     }
     
     const botData = BOTS_DATA[session.pairingBot];
-    const loadingMsg = await ctx.reply('⏳ *Getting pairing code...*', { parse_mode: 'Markdown' });
+    const loadingMsg = await ctx.reply(
+      `🔍 *Debugging pairing process...*\n\n` +
+      `This will show detailed response information.`,
+      { parse_mode: 'Markdown' }
+    );
     
-    const result = await getPairingCode(session.pairingBot, messageText);
+    const result = await debugPairing(session.pairingBot, messageText);
     
     await ctx.deleteMessage(loadingMsg.message_id);
-    
-    // Send pairing result
     await ctx.replyWithMarkdown(
       result.message,
       Markup.inlineKeyboard([
         Markup.button.callback('🚀 Deploy', 'show_deploy'),
-        Markup.button.callback('🔄 Pair Another', `pair_${session.pairingBot}`)
+        Markup.button.callback('🔄 Try Again', `pair_${session.pairingBot}`)
       ])
     );
     
@@ -296,13 +329,13 @@ bot.action('back_to_menu', async (ctx) => {
 
 async function startBot() {
   try {
-    console.log('🚀 Starting Pairing Hub...');
+    console.log('🚀 Starting DEBUG Pairing Hub...');
     
     const botInfo = await bot.telegram.getMe();
     console.log('✅ Bot: @' + botInfo.username);
     
     await bot.launch();
-    console.log('🎉 Bot running! Ready to extract pairing codes.');
+    console.log('🎉 Debug bot running! Check console for detailed logs.');
     
   } catch (error) {
     console.error('❌ Bot failed:', error.message);
