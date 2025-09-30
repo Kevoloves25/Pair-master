@@ -8,8 +8,8 @@ const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your toke
 const BOTS_DATA = [
   {
     name: "🚀 CYPHER-X",
-    pairing_url: "YOUR_CYPHERX_PAIRING_URL_HERE",
-    github_url: "https://github.com/CypherX-Dev/cypherX-MD",
+    pairing_url: "https://pairx6-09722f5196cd.herokuapp.com/",
+    github_url: "https://github.com/Dark-Xploit/CypherX",
     form_field: "number"
   },
   {
@@ -20,8 +20,8 @@ const BOTS_DATA = [
   },
   {
     name: "💫 JUNE-MD",
-    pairing_url: "YOUR_JUNEMD_PAIRING_URL_HERE", 
-    github_url: "https://github.com/june-md/june-bot",
+    pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", 
+    github_url: "https://github.com/Vinpink2/june-md?tab=readme-ov-file",
     form_field: "userNumber"
   },
   {
