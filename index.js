@@ -23,9 +23,9 @@ const BOTS_DATA = [
     requires_auth: false
   },
   {
-    name: "🌐 WhatsApp Web JS",
-    api_url: "https://web.telegram.org", // Different approach
-    github_url: "https://github.com/pedroslopez/whatsapp-web.js",
+    name: "June-MD",
+    api_url: "https://session-june-48eaa29bae6d.herokuapp.com/", // Different approach
+    github_url: "https://github.com/Vinpink2/june-md?tab=readme-ov-file",
     method: "NATIVE", // Special handling
     tested: true,
     requires_auth: false
