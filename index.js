@@ -4,167 +4,169 @@ const axios = require('axios');
 // ==================== CONFIGURATION ====================
 const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your token
 
-// BOTS WITH THEIR ACTUAL PAIRING SITES AND FORM DETAILS
+// BOTS WITH REAL PAIRING SITES
 const BOTS_DATA = [
   {
     name: "🚀 CYPHER-X",
-    pairing_url: "https://cypherx-pair.onrender.com/pair", // Replace with actual URL
+    pairing_url: "YOUR_CYPHERX_PAIRING_URL_HERE",
     github_url: "https://github.com/CypherX-Dev/cypherX-MD",
-    form_data: { number: "{phone}" } // Field name might be 'number', 'phone', etc.
+    form_field: "number"
   },
   {
     name: "🌟 OZEBA-XD", 
-    pairing_url: "https://ozebot-pair.site/pair", // Replace with actual URL
+    pairing_url: "YOUR_OZEBAXD_PAIRING_URL_HERE",
     github_url: "https://github.com/oze-bot/oze-md",
-    form_data: { phone: "{phone}" }
+    form_field: "phone"
   },
   {
     name: "💫 JUNE-MD",
-    pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", // Replace with actual URL
+    pairing_url: "YOUR_JUNEMD_PAIRING_URL_HERE", 
     github_url: "https://github.com/june-md/june-bot",
-    form_data: { userNumber: "{phone}" }
+    form_field: "userNumber"
   },
   {
     name: "🤖 VERONICA-AI",
-    pairing_url: "https://veronica-pair.site/pair", // Replace with actual URL
-    github_url: "https://github.com/veronica-ai/veronica-md", 
-    form_data: { phoneNumber: "{phone}" }
+    pairing_url: "YOUR_VERONICA_PAIRING_URL_HERE",
+    github_url: "https://github.com/veronica-ai/veronica-md",
+    form_field: "phoneNumber"
   },
   {
     name: "⚡ DAVE-MD",
-    pairing_url: "https://dave-md-pair.site/api/pair", // Replace with actual URL  
+    pairing_url: "YOUR_DAVEMD_PAIRING_URL_HERE",  
     github_url: "https://github.com/dave-md/dave-bot",
-    form_data: { number: "{phone}" }
+    form_field: "number"
   }
 ];
+
+// DEPLOYMENT LINKS
+const DEPLOY_LINKS = {
+  katabump: "https://dashboard.katabump.com/auth/login#61ab63",
+  bothosting: "https://bot-hosting.net/?aff=1349004593627009138"
+};
 
 console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
 
 const bot = new Telegraf(BOT_TOKEN);
 const userSessions = new Map();
 
-// ==================== FORM SUBMISSION ====================
+// ==================== IMPROVED PAIRING FUNCTION ====================
 
-async function submitPairingForm(botIndex, phoneNumber) {
+async function getPairingCode(botIndex, phoneNumber) {
   const botData = BOTS_DATA[botIndex];
   
-  console.log(`🤖 Submitting form for: ${botData.name}`);
+  console.log(`🔌 Pairing: ${botData.name}`);
   console.log(`📞 Phone: ${phoneNumber}`);
   console.log(`🌐 URL: ${botData.pairing_url}`);
 
   try {
-    // Prepare form data
-    const formData = {};
-    for (const [key, value] of Object.entries(botData.form_data)) {
-      formData[key] = value.replace('{phone}', phoneNumber);
-    }
-
-    console.log('📤 Form data:', formData);
-
-    const config = {
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      validateStatus: function (status) {
-        return status < 500; // Don't throw on 4xx errors
-      }
+    const formData = {
+      [botData.form_field]: phoneNumber
     };
 
-    console.log('🚀 Sending POST request...');
-    
-    const response = await axios.post(botData.pairing_url, formData, config);
+    console.log('📤 Sending:', formData);
 
-    console.log('✅ Response status:', response.status);
-    console.log('📦 Response data:', JSON.stringify(response.data));
+    const response = await axios.post(botData.pairing_url, formData, {
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Pairing-Bot/1.0'
+      },
+      validateStatus: () => true // Don't throw on any status
+    });
 
-    // Extract pairing code from response
-    const pairingCode = extractPairingCode(response.data);
+    console.log('✅ Response Status:', response.status);
+    console.log('📦 Full Response:', JSON.stringify(response.data, null, 2));
+
+    // BETTER CODE EXTRACTION - Look for ANY code-like patterns
+    let pairingCode = extractAnyCode(response.data);
     
     if (pairingCode) {
       return {
         success: true,
-        message: `✅ *Session ID Generated!*\n\n` +
+        message: `✅ *Pairing Successful!*\n\n` +
                  `*Bot:* ${botData.name}\n` +
                  `*Phone:* \`${phoneNumber}\`\n` +
-                 `*Session ID:* \`${pairingCode}\`\n\n` +
-                 `💡 *Use the command /deploy to get started.*`,
+                 `*Pairing Code:* \`${pairingCode}\`\n\n` +
+                 `💡 *Use this code in your bot deployment.*`,
         code: pairingCode
       };
     } else {
-      // Check if it's a success message without specific code
-      if (response.status === 200) {
-        return {
-          success: true, 
-          message: `✅ *Pairing Successful!*\n\n` +
-                   `*Bot:* ${botData.name}\n` +
-                   `*Phone:* \`${phoneNumber}\`\n\n` +
-                   `📱 *Check your WhatsApp for pairing code.*\n` +
-                   `💡 *Use /deploy command to continue.*`
-        };
-      } else {
-        throw new Error(`Server returned status ${response.status}`);
-      }
+      // If no code found but request was successful, show raw response
+      return {
+        success: true,
+        message: `✅ *Pairing Request Sent!*\n\n` +
+                 `*Bot:* ${botData.name}\n` +
+                 `*Phone:* \`${phoneNumber}\`\n` +
+                 `*Response:* ${JSON.stringify(response.data).substring(0, 200)}...\n\n` +
+                 `🔍 *The pairing site responded but no code was found in the response.*`,
+        code: 'NOT_FOUND_IN_RESPONSE'
+      };
     }
 
   } catch (error) {
-    console.error('❌ Form submission error:', error.message);
-    
-    let errorMessage = 'Failed to connect to pairing service';
-    
-    if (error.response) {
-      errorMessage = `Server error: ${error.response.status}`;
-      if (error.response.data) {
-        errorMessage += ` - ${JSON.stringify(error.response.data)}`;
-      }
-    } else if (error.request) {
-      errorMessage = 'No response from pairing service';
-    }
+    console.error('❌ Error:', error.message);
     
     return {
       success: false,
       message: `❌ *Pairing Failed*\n\n` +
                `*Bot:* ${botData.name}\n` +
-               `*Error:* ${errorMessage}\n\n` +
-               `💡 *Please try:*\n` +
-               `• Visiting the site manually: ${botData.pairing_url}\n` +
-               `• Checking if the site is online\n` +
-               `• Contacting the bot developer`
+               `*Error:* ${error.message}\n\n` +
+               `💡 Please try the pairing site manually.`
     };
   }
 }
 
-function extractPairingCode(responseData) {
+function extractAnyCode(responseData) {
   if (!responseData) return null;
   
   console.log('🔍 Extracting code from:', JSON.stringify(responseData));
   
-  // Try different response formats
-  if (responseData.pairing_code) return responseData.pairing_code;
-  if (responseData.code) return responseData.code;
-  if (responseData.sessionId) return responseData.sessionId;
-  if (responseData.sessionID) return responseData.sessionID;
-  if (responseData.session_id) return responseData.session_id;
-  if (responseData.sessId) return responseData.sessId;
-  if (responseData.id) return responseData.id;
+  // Convert to string for pattern matching
+  const responseStr = JSON.stringify(responseData);
   
-  // Check message field
-  if (responseData.message) {
-    const sessionMatch = responseData.message.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
-    if (sessionMatch) return sessionMatch[1];
-    
-    const codeMatch = responseData.message.match(/\b\d{4,8}\b/);
-    if (codeMatch) return codeMatch[0];
+  // Look for SESSION ID patterns (like "4IKYM-8YY4!")
+  const sessionIdMatch = responseStr.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
+  if (sessionIdMatch) {
+    console.log('🎯 Found session ID:', sessionIdMatch[1]);
+    return sessionIdMatch[1];
   }
   
-  // String response
-  if (typeof responseData === 'string') {
-    const sessionMatch = responseData.match(/([A-Z0-9]{4,6}-[A-Z0-9]{4,6}!?)/);
-    if (sessionMatch) return sessionMatch[1];
+  // Look for numeric codes (4-8 digits)
+  const numericCodeMatch = responseStr.match(/"code":\s*"(\d{4,8})"/);
+  if (numericCodeMatch) {
+    console.log('🎯 Found numeric code:', numericCodeMatch[1]);
+    return numericCodeMatch[1];
   }
   
+  // Look for pairing_code field
+  const pairingCodeMatch = responseStr.match(/"pairing_code":\s*"([^"]+)"/);
+  if (pairingCodeMatch) {
+    console.log('🎯 Found pairing_code:', pairingCodeMatch[1]);
+    return pairingCodeMatch[1];
+  }
+  
+  // Look for sessionId field
+  const sessionIdFieldMatch = responseStr.match(/"sessionId":\s*"([^"]+)"/);
+  if (sessionIdFieldMatch) {
+    console.log('🎯 Found sessionId:', sessionIdFieldMatch[1]);
+    return sessionIdFieldMatch[1];
+  }
+  
+  // Look for any field containing "code"
+  const anyCodeMatch = responseStr.match(/"([^"]*[Cc]ode[^"]*)":\s*"([^"]+)"/);
+  if (anyCodeMatch) {
+    console.log('🎯 Found code field:', anyCodeMatch[2]);
+    return anyCodeMatch[2];
+  }
+  
+  // Last resort: look for any 4-8 character alphanumeric string that might be a code
+  const anyAlphanumericMatch = responseStr.match(/"([A-Za-z0-9]{4,8})"/);
+  if (anyAlphanumericMatch && !anyAlphanumericMatch[1].includes('http')) {
+    console.log('🎯 Found potential code:', anyAlphanumericMatch[1]);
+    return anyAlphanumericMatch[1];
+  }
+  
+  console.log('❌ No code patterns found in response');
   return null;
 }
 
@@ -172,22 +174,38 @@ function extractPairingCode(responseData) {
 
 function getMainMenu() {
   const buttons = BOTS_DATA.map((bot, index) => [
-    Markup.button.callback(`🔑 ${bot.name}`, `pair_${index}`),
-    Markup.button.url(`📂 Repo`, bot.github_url)
+    Markup.button.callback(`${bot.name}`, `pair_${index}`),
+    Markup.button.url(`Repo`, bot.github_url)
   ]);
   
   return Markup.inlineKeyboard(buttons);
 }
 
+function getDeployMenu() {
+  return Markup.inlineKeyboard([
+    [Markup.button.url('🚀 Katabump', DEPLOY_LINKS.katabump)],
+    [Markup.button.url('🤖 Bot Hosting', DEPLOY_LINKS.bothosting)],
+    [Markup.button.callback('« Back to Menu', 'back_to_menu')]
+  ]);
+}
+
 bot.start(async (ctx) => {
-  const welcomeText = `🤖 *WhatsApp Bot Pairing Hub* 🤖\n\n` +
-    `*Available Pairing Sites:*\n` +
+  const welcomeText = `🤖 *WhatsApp Bot Pairing Hub*\n\n` +
+    `*Available Bots:*\n` +
     BOTS_DATA.map((bot, index) => 
       `${index}. ${bot.name}`
     ).join('\n') +
-    `\n\n*Please select a bot to pair:*`;
+    `\n\n*Select a bot to pair:*`;
   
   await ctx.replyWithMarkdown(welcomeText, getMainMenu());
+});
+
+bot.command('deploy', async (ctx) => {
+  await ctx.replyWithMarkdown(
+    `🚀 *Deployment Platforms*\n\n` +
+    `Choose where to deploy your bot:`,
+    getDeployMenu()
+  );
 });
 
 bot.action(/pair_(\d+)/, async (ctx) => {
@@ -197,14 +215,14 @@ bot.action(/pair_(\d+)/, async (ctx) => {
   userSessions.set(ctx.from.id, { pairingBot: botIndex });
   
   await ctx.editMessageText(
-    `🔑 *You have chosen ${botData.name}.*\n\n` +
-    `Please send your WhatsApp number to pair.\n\n` +
-    `*Format:* Country code + number\n` +
-    `*Example:* 254712345678`,
+    `*You have chosen ${botData.name}.*\n\n` +
+    `Please send your WhatsApp number:\n\n` +
+    `*Format:* 254712345678\n` +
+    `*I'll show the pairing code here in Telegram*`,
     { 
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu')
+        Markup.button.callback('« Back', 'back_to_menu')
       ])
     }
   );
@@ -220,40 +238,29 @@ bot.on('text', async (ctx) => {
     
     if (!phoneRegex.test(messageText)) {
       await ctx.reply(
-        '❌ *Invalid phone number format*\n\n' +
-        'Please enter numbers only (10-15 digits):\n\n' +
-        '*Examples:*\n' +
-        '254712345678 (Kenya)\n' +
-        '2348123456789 (Nigeria)\n' +
-        '919876543210 (India)',
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            Markup.button.callback('« Try Again', `pair_${session.pairingBot}`)
-          ])
-        }
+        '❌ *Invalid phone number*\n\n' +
+        'Please enter 10-15 digits:\n' +
+        '*Example:* 254712345678',
+        Markup.inlineKeyboard([
+          Markup.button.callback('« Try Again', `pair_${session.pairingBot}`)
+        ])
       );
       return;
     }
     
     const botData = BOTS_DATA[session.pairingBot];
-    const loadingMsg = await ctx.reply(
-      `⏳ *Submitting to pairing service...*\n\n` +
-      `🤖 Bot: ${botData.name}\n` +
-      `📱 Number: ${messageText}\n` +
-      `🌐 Site: ${botData.pairing_url}`,
-      { parse_mode: 'Markdown' }
-    );
+    const loadingMsg = await ctx.reply('⏳ *Getting pairing code...*', { parse_mode: 'Markdown' });
     
-    // SUBMIT THE FORM
-    const result = await submitPairingForm(session.pairingBot, messageText);
+    const result = await getPairingCode(session.pairingBot, messageText);
     
     await ctx.deleteMessage(loadingMsg.message_id);
+    
+    // Send pairing result
     await ctx.replyWithMarkdown(
       result.message,
       Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu'),
-        Markup.button.callback('🔄 Pair Another', 'pair_another')
+        Markup.button.callback('🚀 Deploy', 'show_deploy'),
+        Markup.button.callback('🔄 Pair Another', `pair_${session.pairingBot}`)
       ])
     );
     
@@ -261,15 +268,23 @@ bot.on('text', async (ctx) => {
   }
 });
 
+bot.action('show_deploy', async (ctx) => {
+  await ctx.editMessageText(
+    `🚀 *Deployment Platforms*\n\n` +
+    `Choose where to deploy your bot:`,
+    getDeployMenu()
+  );
+});
+
 bot.action('back_to_menu', async (ctx) => {
   userSessions.delete(ctx.from.id);
   await ctx.editMessageText(
     `🤖 *WhatsApp Bot Pairing Hub*\n\n` +
-    `*Available Pairing Sites:*\n` +
+    `*Available Bots:*\n` +
     BOTS_DATA.map((bot, index) => 
       `${index}. ${bot.name}`
     ).join('\n') +
-    `\n\n*Please select a bot to pair:*`,
+    `\n\n*Select a bot:*`,
     { 
       parse_mode: 'Markdown',
       ...getMainMenu() 
@@ -277,42 +292,24 @@ bot.action('back_to_menu', async (ctx) => {
   );
 });
 
-bot.action('pair_another', async (ctx) => {
-  userSessions.delete(ctx.from.id);
-  await ctx.editMessageText(
-    `🔄 *Pair Another Bot*\n\n` +
-    `*Available Pairing Sites:*\n` +
-    BOTS_DATA.map((bot, index) => 
-      `${index}. ${bot.name}`
-    ).join('\n') +
-    `\n\n*Please select a bot to pair:*`,
-    { 
-      parse_mode: 'Markdown',
-      ...getMainMenu() 
-    }
-  );
-});
-
-// ==================== BOT STARTUP ====================
+// ==================== START BOT ====================
 
 async function startBot() {
   try {
-    console.log('🚀 Starting WhatsApp Bot Pairing Hub...');
-    console.log('📋 Available bots:', BOTS_DATA.map(b => b.name).join(', '));
+    console.log('🚀 Starting Pairing Hub...');
     
     const botInfo = await bot.telegram.getMe();
-    console.log('✅ Bot connected:', `@${botInfo.username}`);
+    console.log('✅ Bot: @' + botInfo.username);
     
     await bot.launch();
-    console.log('🎉 Pairing hub running! Ready to submit forms.');
+    console.log('🎉 Bot running! Ready to extract pairing codes.');
     
   } catch (error) {
-    console.error('❌ Failed to start bot:', error.message);
+    console.error('❌ Bot failed:', error.message);
     process.exit(1);
   }
 }
 
-// Graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
