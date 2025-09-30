@@ -2,7 +2,7 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
 // ==================== CONFIGURATION ====================
-const BOT_TOKEN = '7701970165:AAHf-r1xxxxxxxxxxxxxxxxxxxxxxxxxxx'; // Your token
+const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your token
 
 // BOTS WITH REAL WORKING PAIRING SITES
 const BOTS_DATA = [
