@@ -3,7 +3,7 @@ const axios = require('axios');
 
 // ==================== CONFIGURATION ====================
 const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E';
-const OPENROUTER_API_KEY = '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'; // Get from https://openrouter.ai
+const OPENROUTER_API_KEY = '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'; // Get from https://openrouter.ai
 
 // Validate configuration
 if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === 'YOUR_OPENROUTER_API_KEY_HERE') {
