@@ -7,9 +7,9 @@ const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your toke
 // Bot data
 const BOTS_DATA = [
   {
-    name: "🌟 Secktor MD",
-    api_url: "https://secktor-api.vercel.app/api/pair",
-    github_url: "https://github.com/SamPandey001/Secktor-MD"
+    name: "cypherX",
+    api_url: "https://pairx6-09722f5196cd.herokuapp.com/",
+    github_url: "https://github.com/Dark-Xploit/CypherX?tab=readme-ov-file"
   },
   {
     name: "🚀 Shadow MD", 
