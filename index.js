@@ -15,6 +15,14 @@ const BOTS_DATA = [
     requires_auth: false
   },
   {
+    name: "NOVA-XMD",
+    api_url: "https://nova-pair-site.onrender.com",
+    github_url: "https://github.com/novaxmd/NOVA-XMD/fork",
+    method: "POST",
+    tested: false,
+    requires_auth: false
+  },
+  {
     name: "✅ Secktor MD (Verified)",
     api_url: "https://secktor-api.vercel.app/api/pair",
     github_url: "https://github.com/SamPandey001/Secktor-MD",
