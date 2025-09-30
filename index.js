@@ -279,7 +279,7 @@ bot.start(async (ctx) => {
 });
 
 bot.action(/pair_(\d+)/, async (ctx) => {
-  const botIndex = parseInt(ctx.match[1]));
+  const botIndex = parseInt(ctx.match[1]);
   const botData = BOTS_DATA[botIndex];
   
   userSessions.set(ctx.from.id, { pairingBot: botIndex });
