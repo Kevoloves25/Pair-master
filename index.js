@@ -20,7 +20,7 @@ const BOTS_DATA = [
   },
   {
     name: "💫 JUNE-MD",
-    pairing_url: "https://june-md-pair.vercel.app/api/pair", // Replace with actual URL
+    pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", // Replace with actual URL
     github_url: "https://github.com/june-md/june-bot",
     form_data: { userNumber: "{phone}" }
   },
