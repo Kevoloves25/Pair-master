@@ -3,314 +3,222 @@ const axios = require('axios');
 
 // ==================== CONFIGURATION ====================
 const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E';
+const OPENROUTER_API_KEY = 'YOUR_OPENROUTER_API_KEY_HERE'; // Get from https://openrouter.ai
 
-// BOTS WITH REAL PAIRING SITES - Let's test them properly
-const BOTS_DATA = [
-  {
-    name: "🚀 CYPHER-X",
-    pairing_url: "https://pairx6-09722f5196cd.herokuapp.com/",
-    github_url: "https://github.com/Dark-Xploit/CypherX"
-  },
-  {
-    name: "💫 JUNE-MD",
-    pairing_url: "https://session-2s-dfa3baea9dc1.herokuapp.com/pair", 
-    github_url: "https://github.com/Vinpink2/june-md"
-  }
-];
+// Validate configuration
+if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY === '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) {
+  console.error('❌ ERROR: Please set your OpenRouter API key!');
+  console.log('💡 Get it from: https://openrouter.ai/api-keys');
+  process.exit(1);
+}
 
-// DEPLOYMENT LINKS
-const DEPLOY_LINKS = {
-  katabump: "https://dashboard.katabump.com/auth/login#61ab63",
-  bothosting: "https://bot-hosting.net/?aff=1349004593627009138"
-};
-
-console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
+console.log('🔐 Bot token loaded:', BOT_TOKEN.substring(0, 15) + '...');
+console.log('🤖 AI Model: Mistral 7B Instruct');
 
 const bot = new Telegraf(BOT_TOKEN);
-const userSessions = new Map();
 
-// ==================== TEST PAIRING SITES ====================
+// Store conversation history
+const userConversations = new Map();
 
-async function testPairingSite(botIndex, phoneNumber) {
-  const botData = BOTS_DATA[botIndex];
-  
-  console.log(`\n🧪 TESTING: ${botData.name}`);
-  console.log(`📞 Phone: ${phoneNumber}`);
-  console.log(`🌐 URL: ${botData.pairing_url}`);
+// ==================== MISTRAL AI INTEGRATION ====================
 
-  // Test different data formats and endpoints
-  const testCases = [
-    // Test 1: Basic number field
-    { data: { number: phoneNumber }, description: "number field" },
-    // Test 2: Phone field
-    { data: { phone: phoneNumber }, description: "phone field" },
-    // Test 3: Different endpoint
-    { data: { number: phoneNumber }, url: botData.pairing_url.replace('/pair', '') + '/', description: "root endpoint" },
-  ];
-
-  for (const testCase of testCases) {
-    const testUrl = testCase.url || botData.pairing_url;
+async function getAIResponse(userId, message) {
+  try {
+    // Get or initialize conversation history
+    if (!userConversations.has(userId)) {
+      userConversations.set(userId, [
+        { role: "system", content: "You are a helpful AI assistant. Provide clear, concise, and helpful responses." }
+      ]);
+    }
     
-    console.log(`\n🔧 Testing: ${testCase.description}`);
-    console.log(`📤 URL: ${testUrl}`);
-    console.log(`📦 Data:`, testCase.data);
+    const conversation = userConversations.get(userId);
+    
+    // Add user message to conversation
+    conversation.push({ role: "user", content: message });
+    
+    // Keep only last 10 messages to manage context
+    if (conversation.length > 20) {
+      conversation.splice(1, 2); // Remove oldest user-assistant pair, keep system prompt
+    }
 
-    try {
-      const response = await axios.post(testUrl, testCase.data, {
-        timeout: 15000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; Pairing-Bot/1.0)'
-        },
-        validateStatus: () => true
-      });
+    console.log(`💭 User ${userId}: ${message.substring(0, 100)}...`);
+    
+    const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+      model: "mistralai/mistral-7b-instruct:free",
+      messages: conversation,
+      max_tokens: 1000,
+      temperature: 0.7,
+      stream: false
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://telegram-bot.com', // Required by OpenRouter
+        'X-Title': 'Telegram AI Assistant' // Required by OpenRouter
+      },
+      timeout: 30000
+    });
 
-      console.log(`📊 Status: ${response.status}`);
-      
-      // Check if response contains any useful information
-      if (response.data) {
-        console.log(`📦 Response type: ${typeof response.data}`);
-        
-        if (typeof response.data === 'string') {
-          console.log(`📝 Response preview: ${response.data.substring(0, 200)}...`);
-          
-          // Check for success indicators in HTML/text
-          if (response.data.includes('success') || response.data.includes('Success') || 
-              response.data.includes('paired') || response.data.includes('session')) {
-            console.log('✅ Found success indicators in response');
-            
-            // Try to extract any code-like patterns
-            const codeMatch = response.data.match(/([A-Z0-9]{3,6}-[A-Z0-9]{3,6})/);
-            if (codeMatch) {
-              return {
-                success: true,
-                message: `✅ *Pairing Successful!*\n\n` +
-                         `*Bot:* ${botData.name}\n` +
-                         `*Phone:* \`${phoneNumber}\`\n` +
-                         `*Session ID:* \`${codeMatch[1]}\`\n\n` +
-                         `💡 *Use the command /deploy to get started.*`,
-                code: codeMatch[1]
-              };
-            } else {
-              return {
-                success: true,
-                message: `✅ *Pairing Request Sent!*\n\n` +
-                         `*Bot:* ${botData.name}\n` +
-                         `*Phone:* \`${phoneNumber}\`\n\n` +
-                         `📱 *The pairing site accepted your request.*\n` +
-                         `💡 *Check your WhatsApp for the code.*`
-              };
-            }
-          }
-        } else if (typeof response.data === 'object') {
-          console.log(`📋 JSON Response:`, JSON.stringify(response.data, null, 2));
-          
-          // Check for code in JSON response
-          if (response.data.code || response.data.sessionId || response.data.pairing_code) {
-            const code = response.data.code || response.data.sessionId || response.data.pairing_code;
-            return {
-              success: true,
-              message: `✅ *Pairing Successful!*\n\n` +
-                       `*Bot:* ${botData.name}\n` +
-                       `*Phone:* \`${phoneNumber}\`\n` +
-                       `*Session ID:* \`${code}\`\n\n` +
-                       `💡 *Use the command /deploy to get started.*`,
-              code: code
-            };
-          }
-        }
-      }
+    const aiReply = response.data.choices[0].message.content;
+    
+    // Add AI response to conversation history
+    conversation.push({ role: "assistant", content: aiReply });
+    
+    console.log(`🤖 AI Response: ${aiReply.substring(0, 100)}...`);
+    
+    return aiReply;
 
-      // If we get a 200 status but no clear success, assume it worked
-      if (response.status === 200) {
-        return {
-          success: true,
-          message: `✅ *Pairing Request Sent!*\n\n` +
-                   `*Bot:* ${botData.name}\n` +
-                   `*Phone:* \`${phoneNumber}\`\n\n` +
-                   `📱 *The pairing site accepted your request.*\n` +
-                   `💡 *Check your WhatsApp for the pairing code.*`
-        };
-      }
-
-    } catch (error) {
-      console.log(`❌ Test failed: ${error.message}`);
+  } catch (error) {
+    console.error('❌ AI API Error:', error.response?.data || error.message);
+    
+    if (error.response?.status === 429) {
+      return "⏳ I'm getting too many requests right now. Please try again in a moment!";
+    } else if (error.response?.status === 401) {
+      return "🔑 There's an issue with my AI service configuration. Please contact my developer.";
+    } else if (error.code === 'ECONNABORTED') {
+      return "⏰ The AI is taking too long to respond. Please try again with a shorter message.";
+    } else {
+      return "❌ I'm having trouble connecting to my AI brain right now. Please try again later!";
     }
   }
-
-  // If all tests failed
-  return {
-    success: false,
-    message: `❌ *Unable to connect to pairing service*\n\n` +
-             `*Bot:* ${botData.name}\n` +
-             `*Phone:* \`${phoneNumber}\`\n\n` +
-             `💡 *Please try:*\n` +
-             `• Visiting the site manually: ${botData.pairing_url}\n` +
-             `• Checking if the site is online\n` +
-             `• Contacting the bot developer`
-  };
 }
 
-// ==================== BOT HANDLERS ====================
+// ==================== BOT COMMANDS & HANDLERS ====================
 
 function getMainMenu() {
-  const buttons = BOTS_DATA.map((bot, index) => [
-    Markup.button.callback(`🔑 ${bot.name}`, `pair_${index}`),
-    Markup.button.url(`📂 Repo`, bot.github_url)
-  ]);
-  
-  buttons.push([Markup.button.callback('🔄 Refresh', 'refresh_menu')]);
-  
-  return Markup.inlineKeyboard(buttons);
-}
-
-function getDeployMenu() {
-  return Markup.inlineKeyboard([
-    [Markup.button.url('🚀 Katabump', DEPLOY_LINKS.katabump)],
-    [Markup.button.url('🤖 Bot Hosting', DEPLOY_LINKS.bothosting)],
-    [Markup.button.callback('« Back to Menu', 'back_to_menu')]
-  ]);
+  return Markup.keyboard([
+    ['🧠 Ask AI', '🔄 New Chat'],
+    ['ℹ️ Help', '🚀 About']
+  ]).resize();
 }
 
 bot.start(async (ctx) => {
-  const welcomeText = `🤖 *Welcome to Bot Pairing Hub* 🤖\n\n` +
-    `I help you pair WhatsApp MD bots directly in Telegram!\n\n` +
-    `*Available Bots:*\n` +
-    BOTS_DATA.map((bot, index) => 
-      `${index + 1}. ${bot.name}`
-    ).join('\n') +
-    `\n\nSelect a bot to get started:`;
+  const welcomeText = `🤖 *Welcome to AI Assistant* 🤖\n\n` +
+    `I'm powered by *Mistral 7B* AI and ready to help you with:\n\n` +
+    `💡 Questions & Answers\n` +
+    `📚 Learning & Explanations\n` +
+    `💭 Creative Writing\n` +
+    `🔍 Problem Solving\n` +
+    `📝 Code Help\n\n` +
+    `*Just send me a message and let's chat!*`;
   
   await ctx.replyWithMarkdown(welcomeText, getMainMenu());
 });
 
 bot.help(async (ctx) => {
-  await ctx.replyWithMarkdown(
-    `*🤖 Bot Pairing Hub Help*\n\n` +
-    `*How it works:*\n` +
-    `1. I send your number to the bot's pairing site\n` +
-    `2. The pairing site generates a code\n` +
-    `3. I show you the code here in Telegram\n\n` +
-    `*Phone Format:* 254712345678\n` +
-    `*No random codes - real pairing only!*`
-  );
-});
-
-bot.command('deploy', async (ctx) => {
-  await ctx.replyWithMarkdown(
-    `🚀 *Deployment Platforms*\n\n` +
-    `Choose where to deploy your bot:`,
-    getDeployMenu()
-  );
-});
-
-bot.action(/pair_(\d+)/, async (ctx) => {
-  const botIndex = parseInt(ctx.match[1]);
-  const botData = BOTS_DATA[botIndex];
+  const helpText = `*🤖 AI Assistant Help*\n\n` +
+    `*Available Commands:*\n` +
+    `/start - Start the bot\n` +
+    `/newchat - Start a new conversation\n` +
+    `/help - Show this help message\n\n` +
+    `*Quick Actions:*\n` +
+    `• Use the menu buttons below\n` +
+    `• Or just type your message directly\n\n` +
+    `*Tips:*\n` +
+    `• I remember our conversation context\n` +
+    `• Use /newchat to clear memory\n` +
+    `• I'm best with clear, specific questions`;
   
-  userSessions.set(ctx.from.id, { pairingBot: botIndex });
-  
-  await ctx.editMessageText(
-    `🔑 *Pairing ${botData.name}*\n\n` +
-    `Please enter your phone number with country code:\n\n` +
-    `*Examples:*\n` +
-    `🇰🇪 Kenya: 254712345678\n` +
-    `🇳🇬 Nigeria: 2348123456789\n` +
-    `🇮🇳 India: 919876543210\n\n` +
-    `*Format:* [Country Code][Number] (no + sign)`,
-    { 
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu')
-      ])
-    }
+  await ctx.replyWithMarkdown(helpText, getMainMenu());
+});
+
+bot.command('newchat', async (ctx) => {
+  userConversations.delete(ctx.from.id);
+  await ctx.replyWithMarkdown(
+    `🔄 *New chat started!*\n\nI've cleared our conversation history. What would you like to talk about?`,
+    getMainMenu()
   );
 });
 
-bot.action('refresh_menu', async (ctx) => {
-  await ctx.editMessageText(
-    `🔄 Menu refreshed!\n\nSelect a bot to get started:`,
-    { 
-      parse_mode: 'Markdown',
-      ...getMainMenu() 
-    }
+// Handle menu buttons
+bot.hears('🧠 Ask AI', async (ctx) => {
+  await ctx.reply('💭 What would you like to ask me? I\'m ready to help!');
+});
+
+bot.hears('🔄 New Chat', async (ctx) => {
+  userConversations.delete(ctx.from.id);
+  await ctx.reply('🔄 Started a fresh conversation! What\'s on your mind?');
+});
+
+bot.hears('ℹ️ Help', async (ctx) => {
+  await ctx.replyWithMarkdown(
+    `*Need help?*\n\nJust send me any message and I'll respond! Use /newchat to clear our conversation history.`,
+    getMainMenu()
   );
 });
 
-bot.action('back_to_menu', async (ctx) => {
-  userSessions.delete(ctx.from.id);
-  await ctx.editMessageText(
-    `🤖 *Bot Pairing Hub*\n\nSelect a bot to get started:`,
-    { 
-      parse_mode: 'Markdown',
-      ...getMainMenu() 
-    }
+bot.hears('🚀 About', async (ctx) => {
+  await ctx.replyWithMarkdown(
+    `*🤖 About Me*\n\n` +
+    `• *AI Model:* Mistral 7B Instruct\n` +
+    `• *Powered by:* OpenRouter API\n` +
+    `• *Features:* Context-aware conversations\n` +
+    `• *Skills:* Q&A, writing, coding, analysis\n\n` +
+    `I'm here to help you with anything! Just start chatting.`
   );
 });
 
-// Handle phone number input
+// Handle all text messages
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
-  const session = userSessions.get(userId);
-  const messageText = ctx.message.text.trim();
+  const userMessage = ctx.message.text;
   
-  // Ignore commands
-  if (messageText.startsWith('/')) return;
+  // Ignore menu commands we already handled
+  if (['🧠 Ask AI', '🔄 New Chat', 'ℹ️ Help', '🚀 About'].includes(userMessage)) {
+    return;
+  }
   
-  if (session && session.pairingBot !== undefined) {
-    const phoneRegex = /^\d{10,15}$/;
+  // Show typing action
+  await ctx.sendChatAction('typing');
+  
+  try {
+    const loadingMsg = await ctx.reply('💭 Thinking...');
     
-    if (!phoneRegex.test(messageText)) {
-      await ctx.reply(
-        '❌ *Invalid phone number format*\n\n' +
-        'Please enter:\n' +
-        '• Numbers only (no spaces, dashes, or +)\n' +
-        '• 10-15 digits total\n' +
-        '• Include country code\n\n' +
-        '*Example:* 254712345678',
-        {
-          parse_mode: 'Markdown',
-          ...Markup.inlineKeyboard([
-            Markup.button.callback('« Try Again', `pair_${session.pairingBot}`)
-          ])
-        }
-      );
-      return;
-    }
-    
-    const botData = BOTS_DATA[session.pairingBot];
-    const loadingMsg = await ctx.reply('⏳ Testing pairing service...');
-    
-    // Test the pairing site
-    const result = await testPairingSite(session.pairingBot, messageText);
+    const aiResponse = await getAIResponse(userId, userMessage);
     
     await ctx.deleteMessage(loadingMsg.message_id);
+    await ctx.replyWithMarkdown(aiResponse, getMainMenu());
     
-    // Send result
+  } catch (error) {
+    console.error('Bot error:', error);
     await ctx.replyWithMarkdown(
-      result.message,
-      Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu'),
-        Markup.button.callback('🔄 Pair Another', 'refresh_menu')
-      ])
+      '❌ Sorry, I encountered an error. Please try again!',
+      getMainMenu()
     );
-    
-    userSessions.delete(userId);
   }
+});
+
+// Handle non-text messages
+bot.on('message', async (ctx) => {
+  await ctx.replyWithMarkdown(
+    '📝 I currently only understand text messages. Please send me a text message!',
+    getMainMenu()
+  );
+});
+
+// ==================== ERROR HANDLING ====================
+
+bot.catch((err, ctx) => {
+  console.error('❌ Bot error:', err);
+  ctx.replyWithMarkdown(
+    '❌ An unexpected error occurred. Please try again!',
+    getMainMenu()
+  );
 });
 
 // ==================== START BOT ====================
 
 async function startBot() {
   try {
-    console.log('🚀 Starting Bot Pairing Hub...');
-    console.log('📋 Available bots:', BOTS_DATA.map(b => b.name).join(', '));
+    console.log('🚀 Starting AI Chatbot...');
+    console.log('🤖 Model: Mistral 7B Instruct');
+    console.log('🌐 API: OpenRouter');
     
     const botInfo = await bot.telegram.getMe();
     console.log('✅ Bot connected: @' + botInfo.username);
     
     await bot.launch();
-    console.log('🎉 Bot is now running! Send /start to test.');
+    console.log('🎉 AI Chatbot is running! Send a message to test.');
     
   } catch (error) {
     console.error('❌ Failed to start bot:', error.message);
@@ -318,7 +226,7 @@ async function startBot() {
   }
 }
 
-// Handle graceful shutdown
+// Graceful shutdown
 process.once('SIGINT', () => {
   console.log('\n🛑 Shutting down bot gracefully...');
   bot.stop('SIGINT');
