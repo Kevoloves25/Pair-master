@@ -4,39 +4,39 @@ const axios = require('axios');
 // ==================== CONFIGURATION ====================
 const BOT_TOKEN = '7701970165:AAFmPpYOJ92MT033UoJLmxfQX7rIe703k6E'; // Your token
 
-// Bot data with TESTED APIs and fallbacks
+// Bot data with flexible pairing sites
 const BOTS_DATA = [
   {
-    name: "🔍 cypherX MD",
-    api_url: "https://cypherx-api.vercel.app/api/pair",
+    name: "🚀 NOVA-XMD",
+    pairing_site: "https://nova-pair-site.onrender.com",
+    github_url: "https://github.com/novaxmd/NOVA-XMD",
+    type: "custom_site", // Special handling for custom sites
+    method: "POST",
+    tested: false
+  },
+  {
+    name: "🌟 Secktor MD",
+    pairing_site: "https://secktor-api.hexa-octa-deci.ml/api/pair",
+    github_url: "https://github.com/SamPandey001/Secktor-MD", 
+    type: "standard_api",
+    method: "POST",
+    tested: true
+  },
+  {
+    name: "💫 CypherX MD",
+    pairing_site: "https://cypherx-api.vercel.app/api/pair",
     github_url: "https://github.com/CypherX-Dev/cypherX-MD",
+    type: "standard_api",
     method: "POST",
-    tested: false, // Not yet verified
-    requires_auth: false
+    tested: false
   },
   {
-    name: "NOVA-XMD",
-    api_url: "https://nova-pair-site.onrender.com",
-    github_url: "https://github.com/novaxmd/NOVA-XMD/fork",
-    method: "POST",
-    tested: false,
-    requires_auth: false
-  },
-  {
-    name: "✅ Secktor MD (Verified)",
-    api_url: "https://secktor-api.vercel.app/api/pair",
-    github_url: "https://github.com/SamPandey001/Secktor-MD",
-    method: "POST", 
-    tested: true,
-    requires_auth: false
-  },
-  {
-    name: "June-MD",
-    api_url: "https://session-june-48eaa29bae6d.herokuapp.com/", // Different approach
-    github_url: "https://github.com/Vinpink2/june-md?tab=readme-ov-file",
-    method: "NATIVE", // Special handling
-    tested: true,
-    requires_auth: false
+    name: "🔧 Custom Pair Site",
+    pairing_site: "USER_INPUT", // User can enter any site
+    github_url: "https://github.com",
+    type: "user_provided",
+    method: "AUTO_DETECT",
+    tested: false
   }
 ];
 
@@ -45,178 +45,165 @@ console.log('🔐 Token loaded:', BOT_TOKEN.substring(0, 15) + '...');
 const bot = new Telegraf(BOT_TOKEN);
 const userSessions = new Map();
 
-// ==================== SMART API DETECTION ====================
+// ==================== UNIVERSAL PAIRING HANDLER ====================
 
-async function testApiEndpoint(apiUrl) {
+async function handleUniversalPairing(botIndex, phoneNumber, customSite = null) {
+  const botData = BOTS_DATA[botIndex];
+  let pairingSite = customSite || botData.pairing_site;
+  
+  console.log(`🌐 Universal Pairing Handler`);
+  console.log(`📱 Phone: ${phoneNumber}`);
+  console.log(`🔗 Site: ${pairingSite}`);
+  console.log(`🤖 Bot: ${botData.name}`);
+  console.log(`📝 Type: ${botData.type}`);
+
+  // Handle user-provided custom sites
+  if (botData.type === "user_provided" && pairingSite === "USER_INPUT") {
+    return "❌ Please provide a valid pairing site URL first";
+  }
+
   try {
-    console.log(`🧪 Testing API: ${apiUrl}`);
-    
-    const testData = { phone: "254700000000" }; // Test number
-    
-    const response = await axios.post(apiUrl, testData, {
+    // Test if the site is accessible
+    console.log('🔍 Testing site accessibility...');
+    const siteTest = await axios.get(pairingSite, { 
       timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'API-Tester/1.0'
-      }
+      validateStatus: () => true // Don't throw on 404/etc
     });
     
-    console.log('📊 API Test Response:', response.status, response.data);
+    console.log(`📊 Site response: ${siteTest.status}`);
+
+    // Try different API endpoints and methods
+    const pairingResults = await tryAllPairingMethods(pairingSite, phoneNumber, botData.name);
     
-    // Analyze response to detect fake APIs
-    const responseStr = JSON.stringify(response.data).toLowerCase();
-    
-    if (responseStr.includes('dummy') || 
-        responseStr.includes('fake') || 
-        responseStr.includes('example') ||
-        responseStr.includes('placeholder') ||
-        response.data === 'OK' ||
-        response.data === 'success') {
-      return { working: false, reason: 'Returns dummy data' };
+    if (pairingResults.success) {
+      return `✅ *Pairing Successful!*\n\n` +
+             `*Bot:* ${botData.name}\n` +
+             `*Phone:* \`${phoneNumber}\`\n` +
+             `*Pairing Code:* \`${pairingResults.code}\`\n` +
+             `*Method:* ${pairingResults.method}\n\n` +
+             `🌐 *Site:* ${pairingSite}\n` +
+             `💡 Use this code in your WhatsApp bot setup`;
+    } else {
+      return `❌ *Pairing Failed*\n\n` +
+             `*Bot:* ${botData.name}\n` +
+             `*Phone:* \`${phoneNumber}\`\n` +
+             `*Site:* ${pairingSite}\n\n` +
+             `*Possible Issues:*\n` +
+             `• Site requires different parameters\n` +
+             `• Phone number format issue\n` +
+             `• Temporary site downtime\n` +
+             `• Requires QR code instead\n\n` +
+             `💡 *Try:* Visiting the site directly in browser`;
     }
-    
-    // Check if it returns an actual code format
-    if (response.data.pairing_code || 
-        response.data.code ||
-        (responseStr.match(/\d{4,6}/) && !responseStr.includes('0000'))) {
-      return { working: true, data: response.data };
-    }
-    
-    return { working: false, reason: 'No valid pairing code format' };
-    
+
   } catch (error) {
-    console.log(`❌ API Test Failed: ${error.message}`);
-    return { 
-      working: false, 
-      reason: error.code === 'ECONNREFUSED' ? 'API offline' : error.message 
-    };
+    console.error('❌ Pairing error:', error.message);
+    
+    return `❌ *Connection Failed*\n\n` +
+           `*Bot:* ${botData.name}\n` +
+           `*Site:* ${pairingSite}\n` +
+           `*Error:* ${error.message}\n\n` +
+           `💡 *Solutions:*\n` +
+           `• Check if the site is online\n` +
+           `• Verify the URL is correct\n` +
+           `• Try using mobile data\n` +
+           `• Contact bot developer`;
   }
 }
 
-async function getRealPairingCode(botIndex, phoneNumber) {
-  const botData = BOTS_DATA[botIndex];
+async function tryAllPairingMethods(siteUrl, phoneNumber, botName) {
+  console.log('🔄 Trying different pairing methods...');
   
-  console.log(`🔌 Attempting REAL API: ${botData.name}`);
-  console.log(`📞 Phone: ${phoneNumber}`);
-  console.log(`🌐 Endpoint: ${botData.api_url}`);
+  const methods = [
+    {
+      name: "JSON API POST",
+      url: siteUrl.endsWith('/pair') ? siteUrl : `${siteUrl}/api/pair`,
+      method: "POST",
+      data: { phone: phoneNumber, number: phoneNumber }
+    },
+    {
+      name: "Form Data POST", 
+      url: siteUrl.endsWith('/pair') ? siteUrl : `${siteUrl}/pair`,
+      method: "POST",
+      data: `phone=${phoneNumber}&number=${phoneNumber}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    },
+    {
+      name: "GET with Params",
+      url: `${siteUrl}?phone=${phoneNumber}&number=${phoneNumber}`,
+      method: "GET"
+    },
+    {
+      name: "Root API",
+      url: siteUrl,
+      method: "POST", 
+      data: { phone: phoneNumber }
+    }
+  ];
 
-  // Special handling for different bot types
-  if (botData.method === "NATIVE") {
-    return await handleNativePairing(botData, phoneNumber);
-  }
+  for (let method of methods) {
+    try {
+      console.log(`🔧 Trying: ${method.name} - ${method.url}`);
+      
+      const config = {
+        timeout: 10000,
+        headers: method.headers || { 'Content-Type': 'application/json' },
+        validateStatus: () => true
+      };
 
-  try {
-    const requestData = {
-      number: phoneNumber,
-      phone: phoneNumber,
-      userPhone: phoneNumber,
-      timestamp: Date.now()
-    };
-
-    const config = {
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Telegram-Bot-Pairing-Hub/1.0',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+      let response;
+      
+      if (method.method === "POST") {
+        response = await axios.post(method.url, method.data, config);
+      } else {
+        response = await axios.get(method.url, config);
       }
-    };
 
-    let response;
-    
-    if (botData.method === "POST") {
-      response = await axios.post(botData.api_url, requestData, config);
-    } else {
-      response = await axios.get(`${botData.api_url}?phone=${phoneNumber}`, config);
+      console.log(`📨 Response: ${response.status}`);
+      
+      // Parse response
+      const code = extractPairingCode(response.data);
+      if (code && code !== "000000" && !code.includes("dummy")) {
+        console.log(`✅ Success with ${method.name}: ${code}`);
+        return { success: true, code: code, method: method.name };
+      }
+      
+    } catch (error) {
+      console.log(`❌ ${method.name} failed: ${error.message}`);
     }
-
-    console.log('📦 Raw API Response:', JSON.stringify(response.data));
-
-    // SMART RESPONSE PARSING - Detect real vs fake responses
-    const responseStr = JSON.stringify(response.data);
-    
-    // Detect dummy responses
-    if (responseStr.includes('dummy') || 
-        responseStr.includes('fake') || 
-        responseStr.includes('example') ||
-        response.data === 'OK' ||
-        response.data === 'success' ||
-        response.data === 'paired successfully') {
-      console.log('🚨 Detected dummy API response');
-      return await generateFallbackCode(botData, phoneNumber);
-    }
-
-    // Extract real code from various response formats
-    let pairingCode = null;
-    
-    if (response.data.pairing_code) {
-      pairingCode = response.data.pairing_code;
-    } else if (response.data.code) {
-      pairingCode = response.data.code;
-    } else if (response.data.result && response.data.result.code) {
-      pairingCode = response.data.result.code;
-    } else if (response.data.data && response.data.data.code) {
-      pairingCode = response.data.data.code;
-    } else if (response.data.message) {
-      const codeMatch = response.data.message.match(/\b\d{4,8}\b/);
-      pairingCode = codeMatch ? codeMatch[0] : null;
-    } else if (typeof response.data === 'string') {
-      const codeMatch = response.data.match(/\b\d{4,8}\b/);
-      pairingCode = codeMatch ? codeMatch[0] : null;
-    }
-
-    // Validate the code isn't a placeholder
-    if (pairingCode && 
-        !pairingCode.includes('0000') && 
-        !pairingCode.includes('1234') && 
-        pairingCode.length >= 4) {
-      console.log(`✅ Real code received: ${pairingCode}`);
-      return pairingCode;
-    } else {
-      console.log('🚨 Invalid or placeholder code received');
-      return await generateFallbackCode(botData, phoneNumber);
-    }
-
-  } catch (error) {
-    console.error('❌ API Error:', error.message);
-    return await generateFallbackCode(botData, phoneNumber, error.message);
   }
+  
+  return { 
+    success: false, 
+    error: "All pairing methods failed. Site may use QR code pairing." 
+  };
 }
 
-async function handleNativePairing(botData, phoneNumber) {
-  // For bots that use WhatsApp Web JS or similar
-  // These typically require QR code scanning, not API pairing
-  console.log('🔧 Using native WhatsApp pairing method');
+function extractPairingCode(responseData) {
+  if (!responseData) return null;
   
-  return `📱 *Native WhatsApp Pairing Required*\n\n` +
-         `This bot uses WhatsApp Web protocol.\n\n` +
-         `🔸 *Method 1:* QR Code Scanning\n` +
-         `🔸 *Method 2:* Use the bot's official pairing site\n` +
-         `🔸 *Phone:* \`${phoneNumber}\`\n\n` +
-         `Visit the GitHub repo for setup instructions.`;
-}
-
-async function generateFallbackCode(botData, phoneNumber, error = null) {
-  console.log('🔄 Generating fallback code (API not working)');
+  console.log('🔍 Extracting code from:', JSON.stringify(responseData).substring(0, 200));
   
-  // Create a deterministic but varied code based on phone + timestamp
-  const timestamp = Date.now();
-  const phoneHash = phoneNumber.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
-    return a & a;
-  }, 0);
+  // Try different response formats
+  if (typeof responseData === 'string') {
+    // Look for codes in text
+    const codeMatch = responseData.match(/\b\d{4,8}\b/);
+    return codeMatch ? codeMatch[0] : null;
+  }
   
-  const baseCode = Math.abs(phoneHash + timestamp) % 9000 + 1000;
+  if (typeof responseData === 'object') {
+    // Common API response formats
+    if (responseData.pairing_code) return responseData.pairing_code;
+    if (responseData.code) return responseData.code;
+    if (responseData.result && responseData.result.code) return responseData.result.code;
+    if (responseData.data && responseData.data.code) return responseData.data.code;
+    if (responseData.message) {
+      const codeMatch = responseData.message.match(/\b\d{4,8}\b/);
+      return codeMatch ? codeMatch[0] : null;
+    }
+  }
   
-  return `⚠️ *API Currently Unavailable*\n\n` +
-         `🔸 *Bot:* ${botData.name}\n` +
-         `🔸 *Phone:* \`${phoneNumber}\`\n` +
-         `🔸 *Status:* Official API offline\n\n` +
-         `💡 *Please:*\n` +
-         `• Use the bot's official website\n` +
-         `• Contact the bot developer\n` +
-         `• Try another bot from our list\n\n` +
-         `📞 For testing: \`${baseCode}\``;
+  return null;
 }
 
 // ==================== BOT HANDLERS ====================
@@ -230,23 +217,23 @@ function getMainMenu() {
     Markup.button.url(`📂 Repo`, bot.github_url)
   ]);
   
-  buttons.push([Markup.button.callback('🔄 Test All APIs', 'test_apis')]);
-  buttons.push([Markup.button.callback('ℹ️ API Status', 'api_status')]);
+  buttons.push([Markup.button.callback('🌐 Add Custom Site', 'custom_site')]);
+  buttons.push([Markup.button.callback('🔄 Refresh', 'refresh_menu')]);
   
   return Markup.inlineKeyboard(buttons);
 }
 
 bot.start(async (ctx) => {
-  const welcomeText = `🤖 *Smart Bot Pairing Hub* 🤖\n\n` +
-    `*Intelligent API Detection*\n` +
-    `✅ Detects real vs fake APIs\n` +
-    `✅ Provides honest status reports\n` +
-    `✅ No more random codes!\n\n` +
+  const welcomeText = `🤖 *Universal Pairing Hub* 🤖\n\n` +
+    `*Now Supports Any Pairing Site!*\n` +
+    `✅ NOVA-XMD & custom sites\n` +
+    `✅ Multiple API methods\n` +
+    `✅ Smart endpoint detection\n\n` +
     `*Available Bots:*\n` +
     BOTS_DATA.map((bot, index) => 
-      `${bot.tested ? '✅' : '🔍'} ${bot.name}`
+      `${index + 1}. ${bot.name}`
     ).join('\n') +
-    `\n\n*Transparent & Honest Pairing*`;
+    `\n\n*Try NOVA-XMD or add your own site!*`;
   
   await ctx.replyWithMarkdown(welcomeText, getMainMenu());
 });
@@ -255,95 +242,64 @@ bot.action(/pair_(\d+)/, async (ctx) => {
   const botIndex = parseInt(ctx.match[1]);
   const botData = BOTS_DATA[botIndex];
   
-  userSessions.set(ctx.from.id, { pairingBot: botIndex });
-  
-  const statusText = botData.tested ? 
-    '✅ Verified API - Real pairing supported' : 
-    '🔍 Untested API - May require fallback';
-  
-  await ctx.editMessageText(
-    `🔑 *Pairing ${botData.name}*\n\n` +
-    `${statusText}\n\n` +
-    `🌐 *API Endpoint:*\n\`${botData.api_url}\`\n\n` +
-    `Please enter your phone number:\n\n` +
-    `*Format:* CountryCode+Number\n` +
-    `*Example:* 254712345678\n\n` +
-    `⚡ *Smart API Detection Active*`,
-    { 
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu')
-      ])
-    }
-  );
-});
-
-bot.action('test_apis', async (ctx) => {
-  await ctx.editMessageText(
-    `🧪 *Testing All APIs...*\n\n` +
-    `Checking which bots have working pairing...`,
-    { parse_mode: 'Markdown' }
-  );
-  
-  let statusReport = `📊 *API Status Report*\n\n`;
-  
-  for (let i = 0; i < BOTS_DATA.length; i++) {
-    const bot = BOTS_DATA[i];
-    const testResult = await testApiEndpoint(bot.api_url);
-    
-    statusReport += `${testResult.working ? '✅' : '❌'} *${bot.name}*\n`;
-    statusReport += `🔗 ${bot.api_url}\n`;
-    statusReport += `📡 ${testResult.working ? 'WORKING' : 'OFFLINE'}\n`;
-    statusReport += `💬 ${testResult.reason || 'Ready for pairing'}\n\n`;
-  }
-  
-  statusReport += `💡 *Recommendation:* Use ✅ verified bots for best results`;
-  
-  await ctx.editMessageText(
-    statusReport,
-    {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        Markup.button.callback('« Back to Menu', 'back_to_menu')
-      ])
-    }
-  );
-});
-
-bot.action('api_status', async (ctx) => {
-  let statusText = `📡 *Current API Status*\n\n`;
-  
-  BOTS_DATA.forEach(bot => {
-    statusText += `${bot.tested ? '✅' : '🔍'} *${bot.name}*\n`;
-    statusText += `🌐 ${bot.api_url}\n`;
-    statusText += `📊 ${bot.tested ? 'Verified' : 'Testing needed'}\n\n`;
+  userSessions.set(ctx.from.id, { 
+    pairingBot: botIndex,
+    step: 'awaiting_phone'
   });
   
-  statusText += `💡 Use "Test All APIs" for live status`;
+  let messageText = '';
+  
+  if (botData.type === "user_provided") {
+    messageText = `🌐 *Custom Pairing Site*\n\n` +
+      `Please send me the pairing site URL first:\n\n` +
+      `*Example:*\n` +
+      `https://your-pair-site.herokuapp.com\n` +
+      `https://custom-api.render.com/pair\n\n` +
+      `Then I'll ask for your phone number.`;
+    
+    userSessions.set(ctx.from.id, { 
+      pairingBot: botIndex,
+      step: 'awaiting_site'
+    });
+  } else {
+    messageText = `🔑 *Pairing ${botData.name}*\n\n` +
+      `🌐 *Pairing Site:*\n\`${botData.pairing_site}\`\n\n` +
+      `Please enter your phone number:\n\n` +
+      `*Format:* CountryCode+Number\n` +
+      `*Example:* 254712345678\n\n` +
+      `⚡ *Universal API Handler Active*`;
+  }
   
   await ctx.editMessageText(
-    statusText,
-    {
+    messageText,
+    { 
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
-        Markup.button.callback('🧪 Test All APIs', 'test_apis'),
         Markup.button.callback('« Back to Menu', 'back_to_menu')
       ])
     }
   );
 });
 
-// ... (keep the rest of the handlers from previous version)
-
-bot.action('back_to_menu', async (ctx) => {
-  userSessions.delete(ctx.from.id);
+bot.action('custom_site', async (ctx) => {
+  userSessions.set(ctx.from.id, {
+    pairingBot: BOTS_DATA.findIndex(b => b.type === "user_provided"),
+    step: 'awaiting_site'
+  });
+  
   await ctx.editMessageText(
-    `🤖 *Smart Bot Pairing Hub* 🤖\n\n` +
-    `*Honest API Integration*\n` +
-    `Select a bot to get started:`,
-    { 
+    `🌐 *Add Custom Pairing Site*\n\n` +
+    `Send me the pairing site URL:\n\n` +
+    `*Supported Formats:*\n` +
+    `• https://site-name.render.com\n` +
+    `• https://api-site.vercel.app/pair\n` +
+    `• https://custom-bot-api.herokuapp.com\n\n` +
+    `*Example:*\n\`https://nova-pair-site.onrender.com\``,
+    {
       parse_mode: 'Markdown',
-      ...getMainMenu() 
+      ...Markup.inlineKeyboard([
+        Markup.button.callback('« Back to Menu', 'back_to_menu')
+      ])
     }
   );
 });
@@ -353,13 +309,56 @@ bot.on('text', async (ctx) => {
   const session = userSessions.get(userId);
   const messageText = ctx.message.text.trim();
   
-  if (session && session.pairingBot !== undefined) {
+  if (!session) return;
+  
+  const botData = BOTS_DATA[session.pairingBot];
+  
+  if (session.step === 'awaiting_site') {
+    // User is providing a custom site URL
+    if (!messageText.startsWith('http')) {
+      await ctx.reply(
+        '❌ *Invalid URL*\n\n' +
+        'Please provide a valid URL starting with http:// or https://\n\n' +
+        '*Example:* https://nova-pair-site.onrender.com',
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            Markup.button.callback('« Try Again', 'custom_site')
+          ])
+        }
+      );
+      return;
+    }
+    
+    // Store the custom site and ask for phone number
+    userSessions.set(userId, {
+      ...session,
+      customSite: messageText,
+      step: 'awaiting_phone'
+    });
+    
+    await ctx.reply(
+      `✅ *Site Saved*\n\n` +
+      `🌐 ${messageText}\n\n` +
+      `Now enter your phone number:\n\n` +
+      `*Format:* CountryCode+Number\n` +
+      `*Example:* 254712345678`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          Markup.button.callback('« Cancel', 'back_to_menu')
+        ])
+      }
+    );
+    
+  } else if (session.step === 'awaiting_phone') {
+    // User is providing phone number
     const phoneRegex = /^\d{10,15}$/;
     
     if (!phoneRegex.test(messageText)) {
       await ctx.reply(
-        '❌ *Invalid phone number format*\n\n' +
-        'Please enter numbers only (10-15 digits):\n\n' +
+        '❌ *Invalid phone number*\n\n' +
+        'Please enter 10-15 digits only:\n\n' +
         '*Examples:*\n' +
         '254712345678 (Kenya)\n' +
         '2348123456789 (Nigeria)\n' +
@@ -374,26 +373,28 @@ bot.on('text', async (ctx) => {
       return;
     }
     
-    const botData = BOTS_DATA[session.pairingBot];
     const loadingMsg = await ctx.reply(
-      `🔍 *Smart API Detection...*\n\n` +
-      `Testing: ${botData.name}\n` +
-      `Endpoint: ${botData.api_url}\n` +
-      `Phone: ${messageText}`,
+      `🔍 *Connecting to Pairing Site...*\n\n` +
+      `🤖 ${botData.name}\n` +
+      `📱 ${messageText}\n` +
+      `🌐 ${session.customSite || botData.pairing_site}\n\n` +
+      `Trying multiple API methods...`,
       { parse_mode: 'Markdown' }
     );
     
-    // Get REAL pairing code with smart detection
-    const pairingCode = await getRealPairingCode(session.pairingBot, messageText);
+    // Call universal pairing handler
+    const result = await handleUniversalPairing(
+      session.pairingBot, 
+      messageText, 
+      session.customSite
+    );
     
     await ctx.deleteMessage(loadingMsg.message_id);
-    
-    // Send honest result
     await ctx.replyWithMarkdown(
-      pairingCode,
+      result,
       Markup.inlineKeyboard([
         Markup.button.callback('« Back to Menu', 'back_to_menu'),
-        Markup.button.callback('🧪 Test Another', 'refresh_menu')
+        Markup.button.callback('🔄 Try Another', 'refresh_menu')
       ])
     );
     
@@ -401,18 +402,46 @@ bot.on('text', async (ctx) => {
   }
 });
 
+// ... (keep other handlers like back_to_menu, refresh_menu from previous versions)
+
+bot.action('back_to_menu', async (ctx) => {
+  userSessions.delete(ctx.from.id);
+  await ctx.editMessageText(
+    `🤖 *Universal Pairing Hub* 🤖\n\n` +
+    `*Supports Any Pairing Site*\n` +
+    `Select a bot or add custom site:`,
+    { 
+      parse_mode: 'Markdown',
+      ...getMainMenu() 
+    }
+  );
+});
+
+bot.action('refresh_menu', async (ctx) => {
+  userSessions.delete(ctx.from.id);
+  await ctx.editMessageText(
+    `🔄 Menu refreshed!\n\n` +
+    `*Universal Pairing Hub Ready*\n` +
+    `Select a bot to get started:`,
+    { 
+      parse_mode: 'Markdown',
+      ...getMainMenu() 
+    }
+  );
+});
+
 // ==================== BOT STARTUP ====================
 
 async function startBot() {
   try {
-    console.log('🚀 Starting SMART Bot Pairing Hub...');
-    console.log('🔍 Features: API Detection, Honest Reporting');
+    console.log('🚀 Starting Universal Pairing Hub...');
+    console.log('🌐 Supports: NOVA-XMD, Custom Sites, Multiple APIs');
     
     const botInfo = await bot.telegram.getMe();
     console.log('✅ Bot connected:', `@${botInfo.username}`);
     
     await bot.launch();
-    console.log('🎉 Smart bot running! It will detect fake APIs.');
+    console.log('🎉 Universal hub running! Ready for any pairing site.');
     
   } catch (error) {
     console.error('❌ Failed to start bot:', error.message);
